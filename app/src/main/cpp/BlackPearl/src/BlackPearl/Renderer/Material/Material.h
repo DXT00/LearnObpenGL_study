@@ -76,28 +76,33 @@ namespace BlackPearl {
 		}
 
 		Material(
-            IShader*  shader,
+            IShader*  vertShader,
+			IShader*  fragShader,
 			const std::shared_ptr<TextureMaps>& textureMaps,
 			const MaterialColor& materialColors
 		);
 			
 
 		Material(
-			const std::string shaderPath,
+			const std::string vertShaderPath, const std::string fragShaderPath,
 			const std::shared_ptr<TextureMaps>& textureMaps,
 			math::float3 ambientColor, math::float3 diffuseColor, math::float3 specularColor, math::float3 emissiveColor
 		);
 
 		~Material();
 		//TODO:: ����opengl��directX shader
-		ShaderHandle      GetShader()const { GE_ASSERT(DynamicRHI::g_RHIType == DynamicRHI::Type::OpenGL,"Shader class only support opengl now"); return m_Shader; }
+		//ShaderHandle      GetShader()const { GE_ASSERT(DynamicRHI::g_RHIType == DynamicRHI::Type::OpenGL, "Shader class only support opengl now"); return m_Shader; }
+
+		ShaderHandle      GetVertShader()const { GE_ASSERT(DynamicRHI::g_RHIType == DynamicRHI::Type::OpenGL,"Shader class only support opengl now"); return m_VertShader; }
+		ShaderHandle      GetFragShader()const { GE_ASSERT(DynamicRHI::g_RHIType == DynamicRHI::Type::OpenGL, "Shader class only support opengl now"); return m_FragShader; }
+
 		std::shared_ptr<TextureMaps> GetTextureMaps()const { return m_TextureMaps; }
 		MaterialColor                GetMaterialColor()const { return m_MaterialColors; }
 		Props                        GetProps() const { return m_Props; }
 		RTXType						 GetRTXType() const { return m_RTXType; }
 
-		void SetShader(const std::string& shaderPath);
-		void SetShader(IShader* shader);
+		void SetShader(const std::string& shaderPath, ShaderType shaderType);
+		void SetShader(IShader* shader, ShaderType shaderType);
 		void SetTexture(ITexture* texture);
 		//void SetTexture(const TextureType type, const std::string& image);
 		void SetMaterialColor(MaterialColor::Color color);
@@ -153,7 +158,9 @@ namespace BlackPearl {
 	public:
 		std::string name = "Default_Material";
 	private:
-		ShaderHandle 		 m_Shader = nullptr;
+		ShaderHandle 		 m_VertShader = nullptr;
+		ShaderHandle 		 m_FragShader = nullptr;
+
 		std::shared_ptr<TextureMaps> m_TextureMaps = nullptr;
 		MaterialColor				 m_MaterialColors;
 		Props                        m_Props;

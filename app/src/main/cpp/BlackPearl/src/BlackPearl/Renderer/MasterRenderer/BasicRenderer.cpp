@@ -892,17 +892,17 @@ namespace BlackPearl {
 			psoDesc.rasterState.frontCounterClockwise = true;
 			psoDesc.rasterState.cullMode = RasterCullMode::Back;
 			psoDesc.primType = PrimitiveType::TriangleList;
-			psoDesc.inputLayout = inputLayout;
+			psoDesc.inputLayout = shaderParms.inputLayout;
 			//psoDesc.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
             //TODO :: opengl 分开 vs, ps
-			psoDesc.VS = item.material->GetShader();
-			psoDesc.PS = pixelShader;
+			psoDesc.VS = item.material->GetVertShader();
+			psoDesc.PS = item.material->GetFragShader();
 
-            for (int j = 0; j < shaderParms.bindingLayouts.size(); ++j) {
-                psoDesc.bindingLayouts.push_back(shaderParms.bindingLayouts[j]);
+            for (int j = 0; j < shaderParms.shaderbindings[ShaderType::Pixel].bindingLayouts.size(); ++j) {
+                psoDesc.bindingLayouts.push_back(shaderParms.shaderbindings[ShaderType::Pixel].bindingLayouts[j]);
             }
-            for (int j = 0; j < shaderParms.bindingSets.size(); ++j) {
-                graphicsPSO.bindings.push_back(shaderParms.bindingSets[j]);
+            for (int j = 0; j < shaderParms.shaderbindings[ShaderType::Pixel].bindingSets.size(); ++j) {
+                graphicsPSO.bindings.push_back(shaderParms.shaderbindings[ShaderType::Pixel].bindingSets[j]);
             }
 
             SetupMaterial(item.material, item.cullMode, psoDesc, graphicsPSO);

@@ -1,7 +1,44 @@
 #pragma once
+#include <vector>
+#include <string>
 #include "OpenGLDriver/OpenGLDrv.h"
 #include "../RHIDefinitions.h"
 namespace BlackPearl {
+
+
+	struct FPackedArrayInfo
+	{
+		uint16_t	Size;		// Bytes
+		uint8_t	TypeName;	// PACKED_TYPENAME
+		uint8_t	TypeIndex;	// PACKED_TYPE
+	};
+
+
+	struct FOpenGLShaderVarying
+	{
+		std::vector<std::string> Varying;
+		int32_t Location;
+
+		friend bool operator==(const FOpenGLShaderVarying& A, const FOpenGLShaderVarying& B)
+		{
+			if (&A != &B)
+			{
+				return (A.Location == B.Location) && (A.Varying.size() == B.Varying.size()) && (FMemory::Memcmp(A.Varying.GetData(), B.Varying.GetData(), A.Varying.Num() * sizeof(ANSICHAR)) == 0);
+			}
+			return true;
+		}
+
+		//TODO::
+		friend uint32_t GetTypeHash(const FOpenGLShaderVarying& Var)
+		{
+			return 0;
+			/*uint32 Hash = GetTypeHash(Var.Location);
+			Hash ^= FCrc::MemCrc32(Var.Varying.GetData(), Var.Varying.Num() * sizeof(ANSICHAR));
+			return Hash;*/
+
+		}
+	};
+
 
 	// unique identifier for a program. (composite of shader keys)
 	class FOpenGLProgramKey

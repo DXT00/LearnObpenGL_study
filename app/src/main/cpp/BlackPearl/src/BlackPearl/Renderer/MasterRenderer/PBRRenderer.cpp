@@ -47,8 +47,9 @@ namespace BlackPearl {
         BindingLayoutHandle viewBindinglayout = m_Device->createBindingLayout(viewLayoutDesc);
         BindingSetHandle viewBindingset = m_Device->createBindingSet(viewBindingSetDesc, viewBindinglayout);
 
-        m_ShaderParameters.bindingLayouts.push_back(viewBindinglayout);
-        m_ShaderParameters.bindingSets.push_back(viewBindingset);
+        m_ShaderParameters.shaderbindings[ShaderType::Pixel].bindingLayouts.push_back(viewBindinglayout);
+        m_ShaderParameters.shaderbindings[ShaderType::Pixel].bindingSets.push_back(viewBindingset);
+        m_ShaderParameters.inputLayout = inputLayout;
     }
 
 	void PBRRenderer::Render(ICommandList* commandList, IFramebuffer* targetFramebuffer, Scene* scene)

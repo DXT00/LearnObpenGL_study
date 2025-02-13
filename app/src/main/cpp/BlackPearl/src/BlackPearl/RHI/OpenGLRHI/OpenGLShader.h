@@ -7,11 +7,11 @@
 #include "BlackPearl/Math/vector.h"
 #include "BlackPearl/RHI/RHIShader.h"
 #include <BlackPearl/Renderer/Renderer.h>
+#include "OpenGLShaderResource.h"
 
 namespace BlackPearl {
 
 	class LightSources;
-
 	class Shader : public RefCounter<IShader>
 	{
 	public:
@@ -69,29 +69,74 @@ namespace BlackPearl {
 		std::string m_FragmentCommonStruct;
 		std::string m_CommonStructPath="assets/shaders/common/CommonStruct.glsl";
 
+		/*
+		 
+		  
+		FragmentShader = FShaderCodeLibrary::CreatePixelShader(Platform, PSO.GraphicsDesc.FragmentShader);
+
+
+		case SF_Vertex: Shader = RHICreateVertexShader(ShaderCodeView, ShaderHash); CheckShaderCreation(Shader, Index); break;
+		FPixelShaderRHIRef FShaderCodeLibrary::CreatePixelShader(EShaderPlatform Platform, const FSHAHash& Hash)
+
+		*/
+	/*	FOpenGLShader::FOpenGLShader(TArrayView<const uint8> Code, const FSHAHash& Hash, GLenum TypeEnum)
+		{
+			FMemory::Memzero(&Bindings, sizeof(Bindings));
+
+			FShaderCodeReader ShaderCode(Code);
+
+			FMemoryReaderView Ar(Code, true);
+
+			Ar.SetLimitSize(ShaderCode.GetActualShaderCodeSize());
+
+			FOpenGLCodeHeader Header = { 0 };
+			Ar << Header;
+
+			if (Header.GlslMarker != 0x474c534c
+				|| (TypeEnum == GL_VERTEX_SHADER && Header.FrequencyMarker != 0x5653)
+				|| (TypeEnum == GL_FRAGMENT_SHADER && Header.FrequencyMarker != 0x5053)
+				|| (TypeEnum == GL_GEOMETRY_SHADER && Header.FrequencyMarker != 0x4753)
+				|| (TypeEnum == GL_COMPUTE_SHADER && Header.FrequencyMarker != 0x4353)
+				)
+			{
+				UE_LOG(LogRHI, Fatal,
+					TEXT("Corrupt shader bytecode. GlslMarker=0x%08x FrequencyMarker=0x%04x"),
+					Header.GlslMarker,
+					Header.FrequencyMarker
+				);
+				return;
+			}
+
+			Bindings = Header.Bindings;
+			UniformBuffersCopyInfo = Header.UniformBuffersCopyInfo;
+			UE::RHICore::InitStaticUniformBufferSlots(StaticSlots, Bindings.ShaderResourceTable);
+
+			int32 CodeOffset = Ar.Tell();*/
+
+
 
 	};
 
-    
+
 
 	/**
 	 * Shader binding information. for shader bindingSet
 	 */
 	struct FOpenGLShaderBindings
 	{
-		TArray<TArray<CrossCompiler::FPackedArrayInfo>>	PackedUniformBuffers;
-		TArray<CrossCompiler::FPackedArrayInfo>			PackedGlobalArrays;
-		TArray<FOpenGLShaderVarying>					InputVaryings;
-		TArray<FOpenGLShaderVarying>					OutputVaryings;
-		FShaderResourceTable							ShaderResourceTable;
-		CrossCompiler::FShaderBindingInOutMask			InOutMask;
+		std::vector<std::vector<FPackedArrayInfo>>	PackedUniformBuffers;
+		std::vector<FPackedArrayInfo>			PackedGlobalArrays;
+		std::vector<FOpenGLShaderVarying>					InputVaryings;
+		std::vector<FOpenGLShaderVarying>					OutputVaryings;
+	//	FShaderResourceTable							ShaderResourceTable;
+		//CrossCompiler::FShaderBindingInOutMask			InOutMask;
 
 		uint8_t	NumSamplers;
 		uint8_t	NumUniformBuffers;
 		uint8_t	NumUAVs;
 		bool	bFlattenUB;
 
-		FSHAHash VaryingHash; // Not serialized, built during load to allow us to diff varying info but avoid the memory overhead.
+		//FSHAHash VaryingHash; // Not serialized, built during load to allow us to diff varying info but avoid the memory overhead.
 
 		FOpenGLShaderBindings() :
 			NumSamplers(0),
@@ -103,80 +148,84 @@ namespace BlackPearl {
 
 		friend bool operator==(const FOpenGLShaderBindings& A, const FOpenGLShaderBindings& B)
 		{
-			bool bEqual = true;
+			assert(0);
+			return false;
 
-			bEqual &= A.InOutMask == B.InOutMask;
-			bEqual &= A.NumSamplers == B.NumSamplers;
-			bEqual &= A.NumUniformBuffers == B.NumUniformBuffers;
-			bEqual &= A.NumUAVs == B.NumUAVs;
-			bEqual &= A.bFlattenUB == B.bFlattenUB;
-			bEqual &= A.PackedGlobalArrays.Num() == B.PackedGlobalArrays.Num();
-			bEqual &= A.PackedUniformBuffers.Num() == B.PackedUniformBuffers.Num();
-			bEqual &= A.InputVaryings.Num() == B.InputVaryings.Num();
-			bEqual &= A.OutputVaryings.Num() == B.OutputVaryings.Num();
-			bEqual &= A.ShaderResourceTable == B.ShaderResourceTable;
-			bEqual &= A.VaryingHash == B.VaryingHash;
+			//bool bEqual = true;
 
-			if (!bEqual)
-			{
-				return bEqual;
-			}
+			////bEqual &= A.InOutMask == B.InOutMask;
+			//bEqual &= A.NumSamplers == B.NumSamplers;
+			//bEqual &= A.NumUniformBuffers == B.NumUniformBuffers;
+			//bEqual &= A.NumUAVs == B.NumUAVs;
+			//bEqual &= A.bFlattenUB == B.bFlattenUB;
+			//bEqual &= A.PackedGlobalArrays.size() == B.PackedGlobalArrays.size();
+			//bEqual &= A.PackedUniformBuffers.size() == B.PackedUniformBuffers.size();
+			//bEqual &= A.InputVaryings.size() == B.InputVaryings.size();
+			//bEqual &= A.OutputVaryings.size() == B.OutputVaryings.size();
+			////bEqual &= A.ShaderResourceTable == B.ShaderResourceTable;
+			////bEqual &= A.VaryingHash == B.VaryingHash;
 
-			bEqual &= FMemory::Memcmp(A.PackedGlobalArrays.GetData(), B.PackedGlobalArrays.GetData(), A.PackedGlobalArrays.GetTypeSize() * A.PackedGlobalArrays.Num()) == 0;
+			//if (!bEqual)
+			//{
+			//	return bEqual;
+			//}
 
-			for (int32 Item = 0; bEqual && Item < A.PackedUniformBuffers.Num(); Item++)
-			{
-				const TArray<CrossCompiler::FPackedArrayInfo>& ArrayA = A.PackedUniformBuffers[Item];
-				const TArray<CrossCompiler::FPackedArrayInfo>& ArrayB = B.PackedUniformBuffers[Item];
+			//bEqual &= FMemory::Memcmp(A.PackedGlobalArrays.data(), B.PackedGlobalArrays.data(), A.PackedGlobalArrays.GetTypeSize() * A.PackedGlobalArrays.Num()) == 0;
 
-				bEqual = bEqual && (ArrayA.Num() == ArrayB.Num()) && (FMemory::Memcmp(ArrayA.GetData(), ArrayB.GetData(), ArrayA.GetTypeSize() * ArrayA.Num()) == 0);
-			}
+			//for (int32_t Item = 0; bEqual && Item < A.PackedUniformBuffers.size(); Item++)
+			//{
+			//	const TArray<CrossCompiler::FPackedArrayInfo>& ArrayA = A.PackedUniformBuffers[Item];
+			//	const TArray<CrossCompiler::FPackedArrayInfo>& ArrayB = B.PackedUniformBuffers[Item];
+
+			//	bEqual = bEqual && (ArrayA.Num() == ArrayB.Num()) && (FMemory::Memcmp(ArrayA.GetData(), ArrayB.GetData(), ArrayA.GetTypeSize() * ArrayA.Num()) == 0);
+			//}
 
 
-			for (int32 Item = 0; bEqual && Item < A.InputVaryings.Num(); Item++)
-			{
-				bEqual &= A.InputVaryings[Item] == B.InputVaryings[Item];
-			}
+			//for (int32 Item = 0; bEqual && Item < A.InputVaryings.Num(); Item++)
+			//{
+			//	bEqual &= A.InputVaryings[Item] == B.InputVaryings[Item];
+			//}
 
-			for (int32 Item = 0; bEqual && Item < A.OutputVaryings.Num(); Item++)
-			{
-				bEqual &= A.OutputVaryings[Item] == B.OutputVaryings[Item];
-			}
+			//for (int32 Item = 0; bEqual && Item < A.OutputVaryings.Num(); Item++)
+			//{
+			//	bEqual &= A.OutputVaryings[Item] == B.OutputVaryings[Item];
+			//}
 
-			return bEqual;
+			//return bEqual;
 		}
 
-		friend uint32 GetTypeHash(const FOpenGLShaderBindings& Binding)
+		friend uint32_t GetTypeHash(const FOpenGLShaderBindings& Binding)
 		{
-			uint32 Hash = 0;
-			Hash = Binding.InOutMask.Bitmask;
-			Hash ^= Binding.NumSamplers << 16;
-			Hash ^= Binding.NumUniformBuffers << 24;
-			Hash ^= Binding.NumUAVs;
-			Hash ^= Binding.bFlattenUB << 8;
-			Hash ^= FCrc::MemCrc_DEPRECATED(Binding.PackedGlobalArrays.GetData(), Binding.PackedGlobalArrays.GetTypeSize() * Binding.PackedGlobalArrays.Num());
+			//uint32 Hash = 0;
+			//Hash = Binding.InOutMask.Bitmask;
+			//Hash ^= Binding.NumSamplers << 16;
+			//Hash ^= Binding.NumUniformBuffers << 24;
+			//Hash ^= Binding.NumUAVs;
+			//Hash ^= Binding.bFlattenUB << 8;
+			//Hash ^= FCrc::MemCrc_DEPRECATED(Binding.PackedGlobalArrays.GetData(), Binding.PackedGlobalArrays.GetTypeSize() * Binding.PackedGlobalArrays.Num());
 
-			//@todo-rco: Do we need to calc Binding.ShaderResourceTable.GetTypeHash()?
+			////@todo-rco: Do we need to calc Binding.ShaderResourceTable.GetTypeHash()?
 
-			for (int32 Item = 0; Item < Binding.PackedUniformBuffers.Num(); Item++)
-			{
-				const TArray<CrossCompiler::FPackedArrayInfo>& Array = Binding.PackedUniformBuffers[Item];
-				Hash ^= FCrc::MemCrc_DEPRECATED(Array.GetData(), Array.GetTypeSize() * Array.Num());
-			}
+			//for (int32 Item = 0; Item < Binding.PackedUniformBuffers.Num(); Item++)
+			//{
+			//	const TArray<CrossCompiler::FPackedArrayInfo>& Array = Binding.PackedUniformBuffers[Item];
+			//	Hash ^= FCrc::MemCrc_DEPRECATED(Array.GetData(), Array.GetTypeSize() * Array.Num());
+			//}
 
-			for (int32 Item = 0; Item < Binding.InputVaryings.Num(); Item++)
-			{
-				Hash ^= GetTypeHash(Binding.InputVaryings[Item]);
-			}
+			//for (int32 Item = 0; Item < Binding.InputVaryings.Num(); Item++)
+			//{
+			//	Hash ^= GetTypeHash(Binding.InputVaryings[Item]);
+			//}
 
-			for (int32 Item = 0; Item < Binding.OutputVaryings.Num(); Item++)
-			{
-				Hash ^= GetTypeHash(Binding.OutputVaryings[Item]);
-			}
+			//for (int32 Item = 0; Item < Binding.OutputVaryings.Num(); Item++)
+			//{
+			//	Hash ^= GetTypeHash(Binding.OutputVaryings[Item]);
+			//}
 
-			Hash ^= GetTypeHash(Binding.VaryingHash);
+			//Hash ^= GetTypeHash(Binding.VaryingHash);
 
-			return Hash;
+			//return Hash;
+			return 0;
 		}
 	};
 
@@ -227,6 +276,18 @@ namespace BlackPearl {
 
 	class FOpenGLLinkedProgram {
 	public:
+
+		struct FPackedUniformInfo
+		{
+			GLint	Location;
+			uint8_t	ArrayType;	// OGL_PACKED_ARRAYINDEX_TYPE
+			uint8_t	Index;		// OGL_PACKED_INDEX_TYPE
+		};
+
+		FOpenGLLinkedProgram(const FOpenGLLinkedProgramConfiguration& config, GLuint program)
+			:Config(config), Program(program) {
+
+		}
 		FOpenGLLinkedProgramConfiguration Config;
 
 		void ConfigureShaderStage(int Stage, uint32_t FirstUniformBuffer);

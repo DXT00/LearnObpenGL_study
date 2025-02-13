@@ -645,7 +645,7 @@ namespace BlackPearl
 
 
     template<class TOpenGLStage0RHI, class TOpenGLStage1RHI>
-    static void BindShaderStage(FOpenGLLinkedProgramConfiguration& Config, CrossCompiler::EShaderStage NextStage, TOpenGLStage0RHI* NextStageShaderIn, CrossCompiler::EShaderStage PrevStage, TOpenGLStage1RHI* PrevStageShaderIn)
+    static void BindShaderStage(FOpenGLLinkedProgramConfiguration& Config, ShaderType NextStage, TOpenGLStage0RHI* NextStageShaderIn, CrossCompiler::EShaderStage PrevStage, TOpenGLStage1RHI* PrevStageShaderIn)
     {
         auto* PrevStageShader = FOpenGLDynamicRHI::ResourceCast(PrevStageShaderIn);
         auto* NextStageShader = FOpenGLDynamicRHI::ResourceCast(NextStageShaderIn);
@@ -681,14 +681,14 @@ namespace BlackPearl
         Config.Shaders[ShaderType::Vertex].Resource = VertexShader->m_ShaderID;
         Config.Shaders[ShaderType::Vertex].ShaderKey = VertexShader->ShaderCodeKey;
         Config.Shaders[ShaderType::Vertex].bValid = true;
-        Config.ProgramKey.ShaderHashes[ShaderType::Vertex] = VertexShaderRHI->GetHash();
+        //Config.ProgramKey.ShaderHashes[ShaderType::Vertex] = VertexShaderRHI->GetHash();
 
         if (GeometryShaderRHI)
         {
             assert(VertexShader);
             GeometryShader->Compile(GL_GEOMETRY_SHADER);
             BindShaderStage(Config, ShaderType::Geometry, GeometryShaderRHI, ShaderType::Vertex, VertexShaderRHI);
-            Config.ProgramKey.ShaderHashes[ShaderType::Geometry] = GeometryShaderRHI->GetHash();
+            //Config.ProgramKey.ShaderHashes[ShaderType::Geometry] = GeometryShaderRHI->GetHash();
             Config.Shaders[ShaderType::Geometry].ShaderKey = GeometryShader->ShaderCodeKey;
             Config.Shaders[ShaderType::Geometry].bValid = true;
         }
@@ -702,7 +702,7 @@ namespace BlackPearl
         {
             BindShaderStage(Config, ShaderType::Pixel, PixelShaderRHI, ShaderType::Vertex, VertexShaderRHI);
         }
-        Config.ProgramKey.ShaderHashes[ShaderType::Pixel] = PixelShaderRHI->GetHash();
+        //Config.ProgramKey.ShaderHashes[ShaderType::Pixel] = PixelShaderRHI->GetHash();
         Config.Shaders[ShaderType::Pixel].ShaderKey = PixelShader->ShaderCodeKey;
         Config.Shaders[ShaderType::Pixel].bValid = true;
 
@@ -713,6 +713,8 @@ namespace BlackPearl
 
     FOpenGLLinkedProgram* Device::LinkProgram(Shader* vertexShader, Shader* pixelShader, Shader* geometryShader)
     {
+        FOpenGLLinkedProgramConfiguration Config = CreateConfig(vertexShader, pixelShader, geometryShader);
+
         // Make sure we have OpenGL context set up, and invalidate the parameters cache and current program (as we'll link a new one soon)
         GetContextStateForCurrentContext().Program = -1;
         //        MarkShaderParameterCachesDirty(PendingState.ShaderParameters, false);
@@ -1048,16 +1050,16 @@ namespace BlackPearl
             Name.Buffer[3] = 0;
             Name.Buffer[4] = 0;
 
-            TArray<FPackedUniformInfo> PackedUniformInfos;
-            for (uint8 Index = 0; Index < CrossCompiler::PACKED_TYPEINDEX_MAX; ++Index)
+            std::vector<FPackedUniformInfo> PackedUniformInfos;
+            for (uint8_t Index = 0; Index < CrossCompiler::PACKED_TYPEINDEX_MAX; ++Index)
             {
-                uint8 ArrayIndexType = CrossCompiler::PackedTypeIndexToTypeName(Index);
+                uint8_t ArrayIndexType = CrossCompiler::PackedTypeIndexToTypeName(Index);
                 Name.Buffer[3] = ArrayIndexType;
                 GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
-                if ((int32)Location != -1)
+                if ((int32_t)Location != -1)
                 {
                     FPackedUniformInfo Info = { Location, ArrayIndexType, Index };
-                    PackedUniformInfos.Add(Info);
+                    PackedUniformInfos.push_back(Info);
                 }
             }
 
@@ -1074,12 +1076,12 @@ namespace BlackPearl
             Name.Buffer[6] = 0;
 
             check(StagePackedUniformInfo[Stage].PackedUniformBufferInfos.Num() == 0);
-            int32 NumUniformBuffers = Config.Shaders[Stage].Bindings.NumUniformBuffers;
+            int32_t NumUniformBuffers = Config.Shaders[Stage].Bindings.NumUniformBuffers;
             StagePackedUniformInfo[Stage].PackedUniformBufferInfos.SetNum(NumUniformBuffers);
-            int32 NumPackedUniformBuffers = Config.Shaders[Stage].Bindings.PackedUniformBuffers.Num();
+            int32_t NumPackedUniformBuffers = Config.Shaders[Stage].Bindings.PackedUniformBuffers.Num();
             check(NumPackedUniformBuffers <= NumUniformBuffers);
 
-            for (int32 UB = 0; UB < NumPackedUniformBuffers; ++UB)
+            for (int32_t UB = 0; UB < NumPackedUniformBuffers; ++UB)
             {
                 const TArray<CrossCompiler::FPackedArrayInfo>& PackedInfo = Config.Shaders[Stage].Bindings.PackedUniformBuffers[UB];
                 TArray<FPackedUniformInfo>& PackedBuffers = StagePackedUniformInfo[Stage].PackedUniformBufferInfos[UB];
@@ -1106,8 +1108,8 @@ namespace BlackPearl
         Name.Buffer[2] = 0;
         Name.Buffer[3] = 0;
         Name.Buffer[4] = 0;
-        int32 LastFoundIndex = -1;
-        for (int32 SamplerIndex = 0; SamplerIndex < Config.Shaders[Stage].Bindings.NumSamplers; ++SamplerIndex)
+        int32_t LastFoundIndex = -1;
+        for (int32_t SamplerIndex = 0; SamplerIndex < Config.Shaders[Stage].Bindings.NumSamplers; ++SamplerIndex)
         {
             SetIndex(Name.Buffer, 2, SamplerIndex);
             GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
@@ -1117,8 +1119,8 @@ namespace BlackPearl
                 {
                     // It may be an array of samplers. Get the initial element location, if available, and count from it.
                     SetIndex(Name.Buffer, 2, LastFoundIndex);
-                    int32 OffsetOfArraySpecifier = (LastFoundIndex > 9) ? 4 : 3;
-                    int32 ArrayIndex = SamplerIndex - LastFoundIndex;
+                    int32_t OffsetOfArraySpecifier = (LastFoundIndex > 9) ? 4 : 3;
+                    int32_t ArrayIndex = SamplerIndex - LastFoundIndex;
                     Name.Buffer[OffsetOfArraySpecifier] = '[';
                     ANSICHAR* EndBracket = SetIndex(Name.Buffer, OffsetOfArraySpecifier + 1, ArrayIndex);
                     *EndBracket++ = ']';
@@ -1161,8 +1163,8 @@ namespace BlackPearl
         Name.Buffer[2] = 0;
         Name.Buffer[3] = 0;
         Name.Buffer[4] = 0;
-        int32 LastFoundUAVIndex = -1;
-        for (int32 UAVIndex = 0; UAVIndex < Config.Shaders[Stage].Bindings.NumUAVs; ++UAVIndex)
+        int32_t LastFoundUAVIndex = -1;
+        for (int32_t UAVIndex = 0; UAVIndex < Config.Shaders[Stage].Bindings.NumUAVs; ++UAVIndex)
         {
             ANSICHAR* Str = SetIndex(Name.Buffer, 2, UAVIndex);
             GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
@@ -1183,8 +1185,8 @@ namespace BlackPearl
                 {
                     // It may be an array of UAVs. Get the initial element location, if available, and count from it.
                     SetIndex(Name.Buffer, 2, LastFoundUAVIndex);
-                    int32 OffsetOfArraySpecifier = (LastFoundUAVIndex > 9) ? 4 : 3;
-                    int32 ArrayIndex = UAVIndex - LastFoundUAVIndex;
+                    int32_t OffsetOfArraySpecifier = (LastFoundUAVIndex > 9) ? 4 : 3;
+                    int32_t ArrayIndex = UAVIndex - LastFoundUAVIndex;
                     Name.Buffer[OffsetOfArraySpecifier] = '[';
                     ANSICHAR* EndBracket = SetIndex(Name.Buffer, OffsetOfArraySpecifier + 1, ArrayIndex);
                     *EndBracket++ = ']';
@@ -1217,7 +1219,7 @@ namespace BlackPearl
             Name.Buffer[2] = 0;
             Name.Buffer[3] = 0;
             Name.Buffer[4] = 0;
-            for (int32 BufferIndex = 0; BufferIndex < Config.Shaders[Stage].Bindings.NumUniformBuffers; ++BufferIndex)
+            for (int32_t BufferIndex = 0; BufferIndex < Config.Shaders[Stage].Bindings.NumUniformBuffers; ++BufferIndex)
             {
                 SetIndex(Name.Buffer, 2, BufferIndex);
                 GLint Location = GetOpenGLProgramUniformBlockIndex(StageProgram, Name);
