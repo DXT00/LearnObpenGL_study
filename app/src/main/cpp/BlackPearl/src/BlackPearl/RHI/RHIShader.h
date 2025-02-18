@@ -3,7 +3,7 @@
 #include "stdint.h"
 #include "RHIBindingSet.h"
 namespace BlackPearl {
-
+    class IInputLayout;
     /** @warning: update *LegacyShaderPlatform* when the below changes */
     enum EShaderPlatform : uint16_t
     {
@@ -159,13 +159,15 @@ typedef RefCountPtr<IShader> ShaderHandle;
 class ShaderParameters
 {
 public:
-    struct ShaderBindings {
+   // struct ShaderBindings {
         std::vector<IBindingLayout*> bindingLayouts;
         std::vector<IBindingSet*> bindingSets;
-    };
+   // };
    
     IInputLayout* inputLayout;
-    ShaderBindings shaderbindings[ShaderType::NUM_COMPILE_SHADER_STAGES];
+   // ShaderBindings shaderbinding;
+    //s[ShaderType::NUM_COMPILE_SHADER_STAGES]
+
 };
 namespace RHICore {
 

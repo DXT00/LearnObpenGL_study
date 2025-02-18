@@ -15,6 +15,7 @@ namespace BlackPearl {
         RT_RawBuffer_SRV,          // vk - StorageBuffer VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
         RT_RawBuffer_UAV,          // vk - StorageBuffer VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
         RT_ConstantBuffer,         // vk - Uniform buffer VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+        RT_Varying,
         RT_VolatileConstantBuffer, // vk - UniformBufferDynamic VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
 
         RT_Sampler,                // vk - Sampler VK_DESCRIPTOR_TYPE_SAMPLER

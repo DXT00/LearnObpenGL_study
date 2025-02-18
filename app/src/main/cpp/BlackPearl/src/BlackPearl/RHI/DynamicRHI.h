@@ -1,8 +1,13 @@
 #pragma once
 #include "BlackPearl/Window.h"
+#include "BlackPearl/RHI/RHIShader.h"
+
 namespace BlackPearl{
-	extern EShaderPlatform GMaxRHIShaderPlatform;
-	extern ERHIFeatureLevel::Type GMaxRHIFeatureLevel;
+
+	EShaderPlatform GMaxRHIShaderPlatform = SP_PCD3D_SM5;
+
+	/** The maximum feature level supported on this machine */
+	ERHIFeatureLevel::Type GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
 
 	class Window;
 	class DynamicModule;

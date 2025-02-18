@@ -16,11 +16,17 @@
 
 #include "OpenGLDevice.h"
 #include "OpenGLState.h"
+#include "OpenGLBindingSet.h"
+#include "OpenGLTexture.h"
+#include "OpenGLSampler.h"
+#include "BlackPearl/RHI/Common/RHIUtils.h"
 #include "BlackPearl/RHI/RHIShader.h"
-
+#include "BlackPearl/Renderer/Shader/CrossCompilerCommon.h"
 
 namespace BlackPearl
 {
+    
+
 #define STATS 1
     static uint32_t GCurrentDriverProgramBinaryAllocation = 0;
     static uint32_t GNumPrograms = 0;
@@ -565,7 +571,7 @@ namespace BlackPearl
  /**
  * Verify that an OpenGL program has linked successfully.
  */
-    static bool VerifyLinkedProgram(GLuint program)
+    static bool VerifyLinkedProgram(GLuint program,  const std::vector<GLuint>& shaderIds)
     {
        
 
@@ -585,7 +591,7 @@ namespace BlackPearl
             glDeleteProgram(program);
             GE_ERROR_JUDGE();
             // Don't leak shaders either.
-            for (auto& shader : ShaderID) {
+            for (const auto& shader : shaderIds) {
                 glDeleteShader(shader);
                 GE_ERROR_JUDGE();
             }
@@ -599,6 +605,177 @@ namespace BlackPearl
         return true;
     }
 
+    static void GetOpenGLProgramUniformBlockBinding(GLuint Program, GLuint UniformBlockIndex, GLuint UniformBlockBinding)
+    {
+    /*    TMap<int64, int64>& Bindings = GetOpenGLUniformBlockBindings().FindOrAdd(Program);
+        int64* Bind = static_cast<int64*>(Bindings.Find(UniformBlockIndex));
+        if (!Bind)
+        {
+            Bind = &(Bindings.Emplace(UniformBlockIndex));
+            check(Bind);
+            *Bind = -1;
+        }
+        check(Bind);
+        if (*Bind != static_cast<int64>(UniformBlockBinding))
+        {
+            *Bind = static_cast<int64>(UniformBlockBinding);
+            FOpenGL::UniformBlockBinding(Program, UniformBlockIndex, UniformBlockBinding);
+        }*/
+
+        FOpenGL::UniformBlockBinding(Program, UniformBlockIndex, UniformBlockBinding);
+    }
+    static GLuint GetOpenGLProgramUniformBlockIndex(GLuint Program, const string& UniformBlockName)
+    {
+        /*TMap<FOpenGLUniformName, int64>& Locations = GetOpenGLUniformBlockLocations().FindOrAdd(Program);
+        int64* Location = Locations.Find(UniformBlockName);
+        if (Location)
+        {
+            return *Location;
+        }
+        else*/
+        {
+           // int64_t& Loc = Locations.Emplace(UniformBlockName);
+            int64_t Loc = (int64_t)FOpenGL::GetUniformBlockIndex(Program, UniformBlockName.c_str());
+            return Loc;
+        }
+    }
+
+     void FOpenGLLinkedProgram::ConfigureBindingSets(uint32_t FirstUniformBuffer) {
+        GLuint program = Program;
+        uint32_t uniforBufferIndex = 0;
+        static const GLint FirstTextureUnit[ShaderType::NUM_COMPILE_SHADER_STAGES] =
+        {
+            FOpenGL::GetFirstVertexTextureUnit(),
+            FOpenGL::GetFirstPixelTextureUnit(),
+            FOpenGL::GetFirstGeometryTextureUnit(),
+            0,
+            0,
+            FOpenGL::GetFirstComputeTextureUnit()
+        };
+
+        static const GLint MaxTextureUnit[ShaderType::NUM_COMPILE_SHADER_STAGES] =
+        {
+            FOpenGL::GetMaxVertexTextureImageUnits(),
+            FOpenGL::GetMaxTextureImageUnits(),
+            FOpenGL::GetMaxGeometryTextureImageUnits(),
+            0,
+            0,
+            FOpenGL::GetMaxComputeTextureImageUnits()
+        };
+
+        static const GLint FirstUAVUnit[ShaderType::NUM_COMPILE_SHADER_STAGES] =
+        {
+            FOpenGL::GetFirstVertexUAVUnit(),
+            FOpenGL::GetFirstPixelUAVUnit(),
+            OGL_UAV_NOT_SUPPORTED_FOR_GRAPHICS_UNIT,
+            OGL_UAV_NOT_SUPPORTED_FOR_GRAPHICS_UNIT,
+            OGL_UAV_NOT_SUPPORTED_FOR_GRAPHICS_UNIT,
+            FOpenGL::GetFirstComputeUAVUnit()
+        };
+
+
+
+       // std::vector<FPackedUniformInfo>& PackedBuffers = StagePackedUniformInfo[Stage].PackedUniformBufferInfos[UB];
+
+        //const FOpenGLLinkedProgramConfiguration& Config = LinkedProgram->Config;
+         std::vector<BindingSet*>& bindingSets = Config.bindingSet;
+         for (size_t i = 0; i < bindingSets.size(); i++)
+         {
+             BindingSet* bs = bindingSets[i];
+             for (const BindingSetItem& binding: bs->getDesc()->bindings)
+             {
+                 switch (binding.type)
+                 {
+                 case RHIResourceType::RT_Texture_SRV:            
+                 case RHIResourceType::RT_Texture_UAV:
+                 {
+                     Texture* texture = static_cast<Texture*>(binding.resourceHandle);
+                     GLint Location = glGetUniformLocation(Program, binding.name.c_str());
+                     if ((int32_t)Location != -1) {
+                         FPackedUniformInfo Info = { Location, CrossCompiler::PACKED_TYPEINDEX_IMAGE, binding.name };
+                         PackedUniformImages.push_back(Info);
+                     }
+                 }
+
+                 break;
+
+                 case RHIResourceType::RT_TypedBuffer_SRV:
+                 case RHIResourceType::RT_TypedBuffer_UAV:
+                 {
+                     //for vulkan
+                    /* Buffer* buffer = static_cast<Buffer*>(binding.resourceHandle);
+                     GLint Location = glGetUniformLocation(Program, binding.name.c_str());
+
+                     FPackedUniformInfo Info = { Location, CrossCompiler::PACKED_TYPEINDEX_IMAGE, binding.name };
+                     PackedUniformImages.push_back(Info);*/
+                    
+                 }
+                 break;
+
+                 case RHIResourceType::RT_StructuredBuffer_SRV:
+                 case RHIResourceType::RT_StructuredBuffer_UAV:
+                 case RHIResourceType::RT_RawBuffer_SRV:
+                 case RHIResourceType::RT_RawBuffer_UAV:
+                 case RHIResourceType::RT_ConstantBuffer:
+                 case RHIResourceType::RT_VolatileConstantBuffer:
+                 {
+                     Buffer* buffer = static_cast<Buffer*>(binding.resourceHandle);
+                     GLint Location = glGetUniformLocation(Program, binding.name.c_str());
+                     if ((int32_t)Location != -1) {
+                         FPackedUniformInfo Info = { Location, CrossCompiler::PACKED_TYPEINDEX_BUFFER, binding.name };
+                         PackedUniformBuffers.push_back(Info);
+                     }
+                   /*  Name.Buffer[1] = 'b';
+                     Name.Buffer[2] = 0;
+                     Name.Buffer[3] = 0;
+                     Name.Buffer[4] = 0;
+                     for (int32 BufferIndex = 0; BufferIndex < Config.Shaders[Stage].Bindings.NumUniformBuffers; ++BufferIndex)*/
+                     {
+                        // SetIndex(Name.Buffer, 2, BufferIndex);
+                         GLint Location = GetOpenGLProgramUniformBlockIndex(Program, binding.name);
+
+                         if (Location >= 0)
+                         {
+                             FPackedUniformInfo Info = { Location, CrossCompiler::PACKED_TYPEINDEX_BUFFER, binding.name };
+
+                             GetOpenGLProgramUniformBlockBinding(Program, Location, FirstUniformBuffer + uniforBufferIndex++);
+                         }
+                     }
+                 }
+
+                 break;
+
+                 case RHIResourceType::RT_Sampler:
+                 {
+                     const auto& sampler = static_cast<Sampler*>(binding.resourceHandle);
+                    
+                     GLint Location = glGetUniformLocation(Program, binding.name.c_str());
+                     if ((int32_t)Location != -1) {
+                        FPackedUniformInfo Info = { Location, CrossCompiler::PACKED_TYPEINDEX_SAMPLER, binding.name };
+                        PackedUniformImages.push_back(Info);
+                     }
+                 }
+
+                 break;
+
+                 case RHIResourceType::RT_RayTracingAccelStruct:
+                     RHIUtils::NotImplemented();
+                     break;
+
+                 case RHIResourceType::RT_PushConstants:
+                     RHIUtils::NotSupported();
+                     break;
+
+                 case RHIResourceType::RT_None:
+                 case RHIResourceType::RT_Count:
+                 default:
+                     RHIUtils::InvalidEnum();
+                     break;
+                 }
+             }
+         }
+
+    }
     static void ConfigureStageStates(FOpenGLLinkedProgram* LinkedProgram)
     {
         const FOpenGLLinkedProgramConfiguration& Config = LinkedProgram->Config;
@@ -645,7 +822,7 @@ namespace BlackPearl
 
 
     template<class TOpenGLStage0RHI, class TOpenGLStage1RHI>
-    static void BindShaderStage(FOpenGLLinkedProgramConfiguration& Config, ShaderType NextStage, TOpenGLStage0RHI* NextStageShaderIn, CrossCompiler::EShaderStage PrevStage, TOpenGLStage1RHI* PrevStageShaderIn)
+    static void BindShaderStage(FOpenGLLinkedProgramConfiguration& Config, ShaderType NextStage, TOpenGLStage0RHI* NextStageShaderIn, ShaderType PrevStage, TOpenGLStage1RHI* PrevStageShaderIn)
     {
         auto* PrevStageShader = FOpenGLDynamicRHI::ResourceCast(PrevStageShaderIn);
         auto* NextStageShader = FOpenGLDynamicRHI::ResourceCast(NextStageShaderIn);
@@ -662,7 +839,7 @@ namespace BlackPearl
         ShaderInfo.Resource = NextStageResource;
     }
 
-    static FOpenGLLinkedProgramConfiguration CreateConfig(IShader* VertexShaderRHI, IShader* PixelShaderRHI, IShader* GeometryShaderRHI)
+    static FOpenGLLinkedProgramConfiguration CreateConfig(IShader* VertexShaderRHI, IShader* PixelShaderRHI, IShader* GeometryShaderRHI, std::vector<IBindingSet*> bindingSet)
     {
         Shader* VertexShader   = static_cast<Shader*>(VertexShaderRHI);
         Shader* PixelShader    = static_cast<Shader*>(PixelShaderRHI);
@@ -681,6 +858,12 @@ namespace BlackPearl
         Config.Shaders[ShaderType::Vertex].Resource = VertexShader->m_ShaderID;
         Config.Shaders[ShaderType::Vertex].ShaderKey = VertexShader->ShaderCodeKey;
         Config.Shaders[ShaderType::Vertex].bValid = true;
+        for (size_t i = 0; i < bindingSet.size(); i++)
+        {
+            BindingSet* bs = static_cast<BindingSet*>(bindingSet[i]);
+            Config.bindingSet.push_back(bs);
+        }
+       // Config.bindingSet = bindingSet;
         //Config.ProgramKey.ShaderHashes[ShaderType::Vertex] = VertexShaderRHI->GetHash();
 
         if (GeometryShaderRHI)
@@ -711,9 +894,9 @@ namespace BlackPearl
     };
 
 
-    FOpenGLLinkedProgram* Device::LinkProgram(Shader* vertexShader, Shader* pixelShader, Shader* geometryShader)
+    FOpenGLLinkedProgram* Device::LinkProgram(Shader* vertexShader, Shader* pixelShader, Shader* geometryShader, const std::vector<IBindingSet*>& bindingSets)
     {
-        FOpenGLLinkedProgramConfiguration Config = CreateConfig(vertexShader, pixelShader, geometryShader);
+        FOpenGLLinkedProgramConfiguration Config = CreateConfig(vertexShader, pixelShader, geometryShader, bindingSets);
 
         // Make sure we have OpenGL context set up, and invalidate the parameters cache and current program (as we'll link a new one soon)
         GetContextStateForCurrentContext().Program = -1;
@@ -731,18 +914,23 @@ namespace BlackPearl
         //
         GLuint Program = 0;
         FOpenGL::GenProgramPipelines(1, &Program);
-
+        std::vector<GLuint> shaderIds;
         if (vertexShader->m_ShaderID) {
             FOpenGL::UseProgramStages(Program, GL_VERTEX_SHADER_BIT,
                 vertexShader->m_ShaderID);
+            shaderIds.push_back(vertexShader->m_ShaderID);
         }
         if (pixelShader->m_ShaderID) {
             FOpenGL::UseProgramStages(Program, GL_FRAGMENT_SHADER_BIT,
                 pixelShader->m_ShaderID);
+            shaderIds.push_back(pixelShader->m_ShaderID);
+
         }
         if (geometryShader->m_ShaderID) {
             FOpenGL::UseProgramStages(Program, GL_GEOMETRY_SHADER_BIT,
                 geometryShader->m_ShaderID);
+            shaderIds.push_back(geometryShader->m_ShaderID);
+
         }
         //        if (Config.Shaders[ShaderType::Compute].Resource) {
         //            FOpenGL::UseProgramStages(Program, GL_COMPUTE_SHADER_BIT,
@@ -756,7 +944,7 @@ namespace BlackPearl
                 // Link.
         glLinkProgram(Program);
 
-        if (!VerifyLinkedProgram(Program)) {
+        if (!VerifyLinkedProgram(Program, shaderIds)) {
             //TODO:: delete Shader
             return nullptr;
         }
@@ -767,7 +955,8 @@ namespace BlackPearl
 
         FOpenGLLinkedProgram* LinkedProgram = new FOpenGLLinkedProgram(Config, Program);
 
-        ConfigureStageStates(LinkedProgram);
+        LinkedProgram->ConfigureBindingSets(OGL_FIRST_UNIFORM_BUFFER);
+        //ConfigureStageStates(LinkedProgram);
 
         //#if ENABLE_UNIFORM_BUFFER_LAYOUT_VERIFICATION
         //        VerifyUniformBufferLayouts(Program);
@@ -911,6 +1100,7 @@ namespace BlackPearl
             IShader *VertexShaderRHI,
             IShader *PixelShaderRHI,
             IShader *GeometryShaderRHI,
+            const std::vector<IBindingSet*>& IBindingSet,
             bool bFromPSOFileCache
     ) {
         //VERIFY_GL_SCOPE();
@@ -951,7 +1141,7 @@ namespace BlackPearl
                 Shader* GeometryShader = static_cast<Shader*>(GeometryShaderRHI);
 
                 // Link program, using the data provided in config
-                LinkedProgram = LinkProgram(VertexShader, PixelShader, GeometryShader);
+                LinkedProgram = LinkProgram(VertexShader, PixelShader, GeometryShader, IBindingSet);
 
                 if (LinkedProgram == NULL) {
 #if DEBUG_GL_SHADERS
@@ -1003,8 +1193,30 @@ namespace BlackPearl
         //}
     }
 
+    struct FOpenGLUniformName
+    {
+        FOpenGLUniformName()
+        {
+            FMemory::Memzero(Buffer);
+        }
+
+        char Buffer[10];
+
+        friend bool operator ==(const FOpenGLUniformName& A, const FOpenGLUniformName& B)
+        {
+            return FMemory::Memcmp(A.Buffer, B.Buffer, sizeof(A.Buffer)) == 0;
+        }
+
+        friend uint32_t GetTypeHash(const FOpenGLUniformName& Key)
+        {
+           // return FCrc::MemCrc32(Key.Buffer, sizeof(Key.Buffer));
+            return 0;
+        }
+    };
+
     void FOpenGLLinkedProgram::ConfigureShaderStage(int Stage, uint32_t FirstUniformBuffer)
     {
+        
         static const GLint FirstTextureUnit[ShaderType::NUM_COMPILE_SHADER_STAGES] =
         {
             FOpenGL::GetFirstVertexTextureUnit(),
@@ -1035,200 +1247,202 @@ namespace BlackPearl
             FOpenGL::GetFirstComputeUAVUnit()
         };
 
-        //SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderBindParameterTime);
-        //VERIFY_GL_SCOPE();
 
-        FOpenGLUniformName Name;
-        Name.Buffer[0] = CrossCompiler::ShaderStageIndexToTypeName(Stage);
+        ////CrossCompiler::ShaderStageIndexToTypeName(Stage);
+        ////SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderBindParameterTime);
+        ////VERIFY_GL_SCOPE();
+        //
+        //FOpenGLUniformName Name;
+        //Name.Buffer[0] = CrossCompiler::ShaderStageIndexToTypeName(Stage);
 
-        GLuint StageProgram = Program;
+        //GLuint StageProgram = Program;
 
-        // Bind Global uniform arrays (vu_h, pu_i, etc)
-        {
-            Name.Buffer[1] = 'u';
-            Name.Buffer[2] = '_';
-            Name.Buffer[3] = 0;
-            Name.Buffer[4] = 0;
+        //// Bind Global uniform arrays (vu_h, pu_i, etc)
+        //{
+        //    Name.Buffer[1] = 'u';
+        //    Name.Buffer[2] = '_';
+        //    Name.Buffer[3] = 0;
+        //    Name.Buffer[4] = 0;
 
-            std::vector<FPackedUniformInfo> PackedUniformInfos;
-            for (uint8_t Index = 0; Index < CrossCompiler::PACKED_TYPEINDEX_MAX; ++Index)
-            {
-                uint8_t ArrayIndexType = CrossCompiler::PackedTypeIndexToTypeName(Index);
-                Name.Buffer[3] = ArrayIndexType;
-                GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
-                if ((int32_t)Location != -1)
-                {
-                    FPackedUniformInfo Info = { Location, ArrayIndexType, Index };
-                    PackedUniformInfos.push_back(Info);
-                }
-            }
+        //    std::vector<FPackedUniformInfo> PackedUniformInfos;
+        //    for (uint8_t Index = 0; Index < CrossCompiler::PACKED_TYPEINDEX_MAX; ++Index)
+        //    {
+        //        uint8_t ArrayIndexType = CrossCompiler::PackedTypeIndexToTypeName(Index);
+        //        Name.Buffer[3] = ArrayIndexType;
+        //        GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
+        //        if ((int32_t)Location != -1)
+        //        {
+        //            FPackedUniformInfo Info = { Location, ArrayIndexType, Index };
+        //            PackedUniformInfos.push_back(Info);
+        //        }
+        //    }
 
-            SortPackedUniformInfos(PackedUniformInfos, Config.Shaders[Stage].Bindings.PackedGlobalArrays, StagePackedUniformInfo[Stage].PackedUniformInfos);
-        }
+        //    SortPackedUniformInfos(PackedUniformInfos, Config.Shaders[Stage].Bindings.PackedGlobalArrays, StagePackedUniformInfo[Stage].PackedUniformInfos);
+        //}
 
-        // Bind uniform buffer packed arrays (vc0_h, pc2_i, etc)
-        {
-            Name.Buffer[1] = 'c';
-            Name.Buffer[2] = 0;
-            Name.Buffer[3] = 0;
-            Name.Buffer[4] = 0;
-            Name.Buffer[5] = 0;
-            Name.Buffer[6] = 0;
+        //// Bind uniform buffer packed arrays (vc0_h, pc2_i, etc)
+        //{
+        //    Name.Buffer[1] = 'c';
+        //    Name.Buffer[2] = 0;
+        //    Name.Buffer[3] = 0;
+        //    Name.Buffer[4] = 0;
+        //    Name.Buffer[5] = 0;
+        //    Name.Buffer[6] = 0;
 
-            check(StagePackedUniformInfo[Stage].PackedUniformBufferInfos.Num() == 0);
-            int32_t NumUniformBuffers = Config.Shaders[Stage].Bindings.NumUniformBuffers;
-            StagePackedUniformInfo[Stage].PackedUniformBufferInfos.SetNum(NumUniformBuffers);
-            int32_t NumPackedUniformBuffers = Config.Shaders[Stage].Bindings.PackedUniformBuffers.Num();
-            check(NumPackedUniformBuffers <= NumUniformBuffers);
+        //    assert(StagePackedUniformInfo[Stage].PackedUniformBufferInfos.Num() == 0);
+        //    int32_t NumUniformBuffers = Config.Shaders[Stage].Bindings.NumUniformBuffers;
+        //    StagePackedUniformInfo[Stage].PackedUniformBufferInfos.SetNum(NumUniformBuffers);
+        //    int32_t NumPackedUniformBuffers = Config.Shaders[Stage].Bindings.PackedUniformBuffers.Num();
+        //    check(NumPackedUniformBuffers <= NumUniformBuffers);
 
-            for (int32_t UB = 0; UB < NumPackedUniformBuffers; ++UB)
-            {
-                const TArray<CrossCompiler::FPackedArrayInfo>& PackedInfo = Config.Shaders[Stage].Bindings.PackedUniformBuffers[UB];
-                TArray<FPackedUniformInfo>& PackedBuffers = StagePackedUniformInfo[Stage].PackedUniformBufferInfos[UB];
+        //    for (int32_t UB = 0; UB < NumPackedUniformBuffers; ++UB)
+        //    {
+        //        const TArray<CrossCompiler::FPackedArrayInfo>& PackedInfo = Config.Shaders[Stage].Bindings.PackedUniformBuffers[UB];
+        //        TArray<FPackedUniformInfo>& PackedBuffers = StagePackedUniformInfo[Stage].PackedUniformBufferInfos[UB];
 
-                ANSICHAR* Str = SetIndex(Name.Buffer, 2, UB);
-                *Str++ = '_';
-                Str[1] = 0;
-                for (uint8 Index = 0; Index < PackedInfo.Num(); ++Index)
-                {
-                    Str[0] = PackedInfo[Index].TypeName;
-                    GLint Location = glGetUniformLocation(StageProgram, Name.Buffer); // This could be -1 if optimized out
-                    FPackedUniformInfo Info = { Location, PackedInfo[Index].TypeName,  PackedInfo[Index].TypeIndex };
-                    PackedBuffers.Add(Info);
-                }
-            }
-        }
+        //        ANSICHAR* Str = SetIndex(Name.Buffer, 2, UB);
+        //        *Str++ = '_';
+        //        Str[1] = 0;
+        //        for (uint8 Index = 0; Index < PackedInfo.Num(); ++Index)
+        //        {
+        //            Str[0] = PackedInfo[Index].TypeName;
+        //            GLint Location = glGetUniformLocation(StageProgram, Name.Buffer); // This could be -1 if optimized out
+        //            FPackedUniformInfo Info = { Location, PackedInfo[Index].TypeName,  PackedInfo[Index].TypeIndex };
+        //            PackedBuffers.Add(Info);
+        //        }
+        //    }
+        //}
 
-        // Reserve and setup Space for Emulated Uniform Buffers
-        StagePackedUniformInfo[Stage].LastEmulatedUniformBufferSet.Empty(Config.Shaders[Stage].Bindings.NumUniformBuffers);
-        StagePackedUniformInfo[Stage].LastEmulatedUniformBufferSet.AddZeroed(Config.Shaders[Stage].Bindings.NumUniformBuffers);
+        //// Reserve and setup Space for Emulated Uniform Buffers
+        //StagePackedUniformInfo[Stage].LastEmulatedUniformBufferSet.Empty(Config.Shaders[Stage].Bindings.NumUniformBuffers);
+        //StagePackedUniformInfo[Stage].LastEmulatedUniformBufferSet.AddZeroed(Config.Shaders[Stage].Bindings.NumUniformBuffers);
 
-        // Bind samplers.
-        Name.Buffer[1] = 's';
-        Name.Buffer[2] = 0;
-        Name.Buffer[3] = 0;
-        Name.Buffer[4] = 0;
-        int32_t LastFoundIndex = -1;
-        for (int32_t SamplerIndex = 0; SamplerIndex < Config.Shaders[Stage].Bindings.NumSamplers; ++SamplerIndex)
-        {
-            SetIndex(Name.Buffer, 2, SamplerIndex);
-            GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
-            if (Location == -1)
-            {
-                if (LastFoundIndex != -1)
-                {
-                    // It may be an array of samplers. Get the initial element location, if available, and count from it.
-                    SetIndex(Name.Buffer, 2, LastFoundIndex);
-                    int32_t OffsetOfArraySpecifier = (LastFoundIndex > 9) ? 4 : 3;
-                    int32_t ArrayIndex = SamplerIndex - LastFoundIndex;
-                    Name.Buffer[OffsetOfArraySpecifier] = '[';
-                    ANSICHAR* EndBracket = SetIndex(Name.Buffer, OffsetOfArraySpecifier + 1, ArrayIndex);
-                    *EndBracket++ = ']';
-                    *EndBracket = 0;
-                    Location = glGetUniformLocation(StageProgram, Name.Buffer);
-                }
-            }
-            else
-            {
-                LastFoundIndex = SamplerIndex;
-            }
+        //// Bind samplers.
+        //Name.Buffer[1] = 's';
+        //Name.Buffer[2] = 0;
+        //Name.Buffer[3] = 0;
+        //Name.Buffer[4] = 0;
+        //int32_t LastFoundIndex = -1;
+        //for (int32_t SamplerIndex = 0; SamplerIndex < Config.Shaders[Stage].Bindings.NumSamplers; ++SamplerIndex)
+        //{
+        //    SetIndex(Name.Buffer, 2, SamplerIndex);
+        //    GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
+        //    if (Location == -1)
+        //    {
+        //        if (LastFoundIndex != -1)
+        //        {
+        //            // It may be an array of samplers. Get the initial element location, if available, and count from it.
+        //            SetIndex(Name.Buffer, 2, LastFoundIndex);
+        //            int32_t OffsetOfArraySpecifier = (LastFoundIndex > 9) ? 4 : 3;
+        //            int32_t ArrayIndex = SamplerIndex - LastFoundIndex;
+        //            Name.Buffer[OffsetOfArraySpecifier] = '[';
+        //            ANSICHAR* EndBracket = SetIndex(Name.Buffer, OffsetOfArraySpecifier + 1, ArrayIndex);
+        //            *EndBracket++ = ']';
+        //            *EndBracket = 0;
+        //            Location = glGetUniformLocation(StageProgram, Name.Buffer);
+        //        }
+        //    }
+        //    else
+        //    {
+        //        LastFoundIndex = SamplerIndex;
+        //    }
 
-            if (Location != -1)
-            {
-                if (OpenGLConsoleVariables::bBindlessTexture == 0 || !FOpenGL::SupportsBindlessTexture())
-                {
-                    // Non-bindless, setup the unit info
-                    FOpenGL::ProgramUniform1i(StageProgram, Location, FirstTextureUnit[Stage] + SamplerIndex);
-                    TextureStageNeeds[FirstTextureUnit[Stage] + SamplerIndex] = true;
-                    MaxTextureStage = FMath::Max(MaxTextureStage, FirstTextureUnit[Stage] + SamplerIndex);
-                    if (SamplerIndex >= MaxTextureUnit[Stage])
-                    {
-                        UE_LOG(LogShaders, Error, TEXT("%s has a shader using too many textures (idx %d, max allowed %d) at stage %d"), *Config.ProgramKey.ToString(), SamplerIndex, MaxTextureUnit[Stage] - 1, Stage);
-                        checkNoEntry();
-                    }
-                }
-                else
-                {
-                    //Bindless, save off the slot information
-                    FOpenGLBindlessSamplerInfo Info;
-                    Info.Handle = Location;
-                    Info.Slot = FirstTextureUnit[Stage] + SamplerIndex;
-                    Samplers.Add(Info);
-                }
-            }
-        }
+        //    if (Location != -1)
+        //    {
+        //        if (OpenGLConsoleVariables::bBindlessTexture == 0 || !FOpenGL::SupportsBindlessTexture())
+        //        {
+        //            // Non-bindless, setup the unit info
+        //            FOpenGL::ProgramUniform1i(StageProgram, Location, FirstTextureUnit[Stage] + SamplerIndex);
+        //            TextureStageNeeds[FirstTextureUnit[Stage] + SamplerIndex] = true;
+        //            MaxTextureStage = FMath::Max(MaxTextureStage, FirstTextureUnit[Stage] + SamplerIndex);
+        //            if (SamplerIndex >= MaxTextureUnit[Stage])
+        //            {
+        //                UE_LOG(LogShaders, Error, TEXT("%s has a shader using too many textures (idx %d, max allowed %d) at stage %d"), *Config.ProgramKey.ToString(), SamplerIndex, MaxTextureUnit[Stage] - 1, Stage);
+        //                checkNoEntry();
+        //            }
+        //        }
+        //        else
+        //        {
+        //            //Bindless, save off the slot information
+        //            FOpenGLBindlessSamplerInfo Info;
+        //            Info.Handle = Location;
+        //            Info.Slot = FirstTextureUnit[Stage] + SamplerIndex;
+        //            Samplers.Add(Info);
+        //        }
+        //    }
+        //}
 
-        // Bind UAVs/images.
-        Name.Buffer[1] = 'i';
-        Name.Buffer[2] = 0;
-        Name.Buffer[3] = 0;
-        Name.Buffer[4] = 0;
-        int32_t LastFoundUAVIndex = -1;
-        for (int32_t UAVIndex = 0; UAVIndex < Config.Shaders[Stage].Bindings.NumUAVs; ++UAVIndex)
-        {
-            ANSICHAR* Str = SetIndex(Name.Buffer, 2, UAVIndex);
-            GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
-            if (Location == -1)
-            {
-                // SSBO
-                Str[0] = '_';
-                Str[1] = 'V';
-                Str[2] = 'A';
-                Str[3] = 'R';
-                Str[4] = '\0';
-                Location = glGetProgramResourceIndex(StageProgram, GL_SHADER_STORAGE_BLOCK, Name.Buffer);
-            }
+        //// Bind UAVs/images.
+        //Name.Buffer[1] = 'i';
+        //Name.Buffer[2] = 0;
+        //Name.Buffer[3] = 0;
+        //Name.Buffer[4] = 0;
+        //int32_t LastFoundUAVIndex = -1;
+        //for (int32_t UAVIndex = 0; UAVIndex < Config.Shaders[Stage].Bindings.NumUAVs; ++UAVIndex)
+        //{
+        //    char* Str = SetIndex(Name.Buffer, 2, UAVIndex);
+        //    GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
+        //    if (Location == -1)
+        //    {
+        //        // SSBO
+        //        Str[0] = '_';
+        //        Str[1] = 'V';
+        //        Str[2] = 'A';
+        //        Str[3] = 'R';
+        //        Str[4] = '\0';
+        //        Location = glGetProgramResourceIndex(StageProgram, GL_SHADER_STORAGE_BLOCK, Name.Buffer);
+        //    }
 
-            if (Location == -1)
-            {
-                if (LastFoundUAVIndex != -1)
-                {
-                    // It may be an array of UAVs. Get the initial element location, if available, and count from it.
-                    SetIndex(Name.Buffer, 2, LastFoundUAVIndex);
-                    int32_t OffsetOfArraySpecifier = (LastFoundUAVIndex > 9) ? 4 : 3;
-                    int32_t ArrayIndex = UAVIndex - LastFoundUAVIndex;
-                    Name.Buffer[OffsetOfArraySpecifier] = '[';
-                    ANSICHAR* EndBracket = SetIndex(Name.Buffer, OffsetOfArraySpecifier + 1, ArrayIndex);
-                    *EndBracket++ = ']';
-                    *EndBracket = '\0';
-                    Location = glGetUniformLocation(StageProgram, Name.Buffer);
-                }
-            }
-            else
-            {
-                LastFoundUAVIndex = UAVIndex;
-            }
+        //    if (Location == -1)
+        //    {
+        //        if (LastFoundUAVIndex != -1)
+        //        {
+        //            // It may be an array of UAVs. Get the initial element location, if available, and count from it.
+        //            SetIndex(Name.Buffer, 2, LastFoundUAVIndex);
+        //            int32_t OffsetOfArraySpecifier = (LastFoundUAVIndex > 9) ? 4 : 3;
+        //            int32_t ArrayIndex = UAVIndex - LastFoundUAVIndex;
+        //            Name.Buffer[OffsetOfArraySpecifier] = '[';
+        //            ANSICHAR* EndBracket = SetIndex(Name.Buffer, OffsetOfArraySpecifier + 1, ArrayIndex);
+        //            *EndBracket++ = ']';
+        //            *EndBracket = '\0';
+        //            Location = glGetUniformLocation(StageProgram, Name.Buffer);
+        //        }
+        //    }
+        //    else
+        //    {
+        //        LastFoundUAVIndex = UAVIndex;
+        //    }
 
-            if (Location != -1)
-            {
-                // compute shaders have layout(binding) for images
-                // glUniform1i(Location, FirstUAVUnit[Stage] + UAVIndex);
+        //    if (Location != -1)
+        //    {
+        //        // compute shaders have layout(binding) for images
+        //        // glUniform1i(Location, FirstUAVUnit[Stage] + UAVIndex);
 
-                // verify that only CS and PS uses UAVs (limitation on MALI GPUs)
-                assert(Stage == ShaderType::Compute || Stage == ShaderType::Pixel);
+        //        // verify that only CS and PS uses UAVs (limitation on MALI GPUs)
+        //        assert(Stage == ShaderType::Compute || Stage == ShaderType::Pixel);
 
-                UAVStageNeeds[FirstUAVUnit[Stage] + UAVIndex] = true;
-                MaxUAVUnitUsed = FMath::Max(MaxUAVUnitUsed, FirstUAVUnit[Stage] + UAVIndex);
-            }
-        }
+        //        UAVStageNeeds[FirstUAVUnit[Stage] + UAVIndex] = true;
+        //        MaxUAVUnitUsed = FMath::Max(MaxUAVUnitUsed, FirstUAVUnit[Stage] + UAVIndex);
+        //    }
+        //}
 
-        // Bind uniform buffers.
-        if (FOpenGL::SupportsUniformBuffers())
-        {
-            Name.Buffer[1] = 'b';
-            Name.Buffer[2] = 0;
-            Name.Buffer[3] = 0;
-            Name.Buffer[4] = 0;
-            for (int32_t BufferIndex = 0; BufferIndex < Config.Shaders[Stage].Bindings.NumUniformBuffers; ++BufferIndex)
-            {
-                SetIndex(Name.Buffer, 2, BufferIndex);
-                GLint Location = GetOpenGLProgramUniformBlockIndex(StageProgram, Name);
-                if (Location >= 0)
-                {
-                    GetOpenGLProgramUniformBlockBinding(StageProgram, Location, FirstUniformBuffer + BufferIndex);
-                }
-            }
-        }
+        //// Bind uniform buffers.
+        //if (FOpenGL::SupportsUniformBuffers())
+        //{
+        //    Name.Buffer[1] = 'b';
+        //    Name.Buffer[2] = 0;
+        //    Name.Buffer[3] = 0;
+        //    Name.Buffer[4] = 0;
+        //    for (int32_t BufferIndex = 0; BufferIndex < Config.Shaders[Stage].Bindings.NumUniformBuffers; ++BufferIndex)
+        //    {
+        //        SetIndex(Name.Buffer, 2, BufferIndex);
+        //        GLint Location = GetOpenGLProgramUniformBlockIndex(StageProgram, Name);
+        //        if (Location >= 0)
+        //        {
+        //            GetOpenGLProgramUniformBlockBinding(StageProgram, Location, FirstUniformBuffer + BufferIndex);
+        //        }
+        //    }
+        //}
     }
   
 

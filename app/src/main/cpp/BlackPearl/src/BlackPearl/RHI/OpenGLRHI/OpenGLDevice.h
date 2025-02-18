@@ -21,6 +21,7 @@ namespace BlackPearl {
 	class FOpenGLRHIState;
 	class FOpenGLLinkedProgram;
 	class FOpenGLStream;
+	class Buffer;
 
 
 	class Device :public RefCounter<IDevice>
@@ -91,6 +92,7 @@ namespace BlackPearl {
 			IShader* VertexShaderRHI,
 			IShader* PixelShaderRHI,
 			IShader* GeometryShaderRHI,
+			const std::vector<IBindingSet*>& IBindingSet,
 			bool bFromPSOFileCache
 		);
 
@@ -146,7 +148,9 @@ namespace BlackPearl {
 
 		void RHIClearMRT(const bool* bClearColorArray, int32_t NumClearColors, const Color* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32_t Stencil);
 		
-		
+		/* vertex buffer */
+		void RHISetStreamSource(uint32_t StreamIndex, Buffer* VertexBuffer, uint32_t Offset);
+
 
 
 		void SetupVertexArrays(FOpenGLContextState& ContextState, uint32_t BaseVertexIndex, FOpenGLStream* Streams, uint32_t NumStreams, uint32_t MaxVertices);
@@ -214,7 +218,7 @@ namespace BlackPearl {
 			/**
 			 * Link vertex and pixel shaders in to an OpenGL program.
 			 */
-			FOpenGLLinkedProgram* LinkProgram(Shader* vertexShader, Shader* pixelShader, Shader* geometryShader);
+			FOpenGLLinkedProgram* LinkProgram(Shader* vertexShader, Shader* pixelShader, Shader* geometryShader, const std::vector<IBindingSet*>& bindingSets);
 
 
 

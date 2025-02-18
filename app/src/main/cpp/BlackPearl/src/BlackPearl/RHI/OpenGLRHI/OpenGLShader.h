@@ -12,6 +12,7 @@
 namespace BlackPearl {
 
 	class LightSources;
+	class BindingSet;
 	class Shader : public RefCounter<IShader>
 	{
 	public:
@@ -243,6 +244,7 @@ namespace BlackPearl {
 		}
 		Shaders[ShaderType::NUM_COMPILE_SHADER_STAGES];
 		FOpenGLProgramKey ProgramKey;
+		std::vector<BindingSet*> bindingSet;
 
 		FOpenGLLinkedProgramConfiguration()
 		{
@@ -280,8 +282,9 @@ namespace BlackPearl {
 		struct FPackedUniformInfo
 		{
 			GLint	Location;
-			uint8_t	ArrayType;	// OGL_PACKED_ARRAYINDEX_TYPE
+			//uint8_t	ArrayType;	// OGL_PACKED_ARRAYINDEX_TYPE
 			uint8_t	Index;		// OGL_PACKED_INDEX_TYPE
+			std::string Name;
 		};
 
 		FOpenGLLinkedProgram(const FOpenGLLinkedProgramConfiguration& config, GLuint program)
@@ -290,8 +293,27 @@ namespace BlackPearl {
 		}
 		FOpenGLLinkedProgramConfiguration Config;
 
-		void ConfigureShaderStage(int Stage, uint32_t FirstUniformBuffer);
+		std::vector<FPackedUniformInfo> PackedUniformSamplers;
+		std::vector<FPackedUniformInfo> PackedUniformImages;
+		std::vector<FPackedUniformInfo> PackedUniformBuffers;
 
+
+		// Holds information needed per stage regarding packed uniform globals and uniform buffers
+		struct FStagePackedUniformInfo
+		{
+			// Packed Uniform Arrays (regular globals); array elements per precision/type
+			std::vector<FPackedUniformInfo>			PackedUniformInfos;
+
+			// Packed Uniform Buffers; outer array is per Uniform Buffer; inner array is per precision/type
+			std::vector<std::vector<FPackedUniformInfo>>	PackedUniformBufferInfos;
+
+			// Holds the unique ID of the last uniform buffer uploaded to the program; since we don't reuse uniform buffers
+			// (can't modify existing ones), we use this as a check for dirty/need to mem copy on Mobile
+			std::vector<uint32_t>						LastEmulatedUniformBufferSet;
+		};
+		FStagePackedUniformInfo	StagePackedUniformInfo[CrossCompiler::NUM_SHADER_STAGES];
+		void ConfigureShaderStage(int Stage, uint32_t FirstUniformBuffer);
+		void ConfigureBindingSets(uint32_t FirstUniformBuffer);
 		// FOpenGLLinkedProgram(Shader* vertexShader, Shader pixelShader, Shader* geometryShader);
 		GLuint		Program;
 		bool		bDrawn;

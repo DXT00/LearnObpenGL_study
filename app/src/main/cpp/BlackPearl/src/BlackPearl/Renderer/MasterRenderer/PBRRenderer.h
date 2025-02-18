@@ -43,7 +43,7 @@ namespace BlackPearl {
         SamplerHandle m_ShadowSampler;
 
 
-        ShaderParameters m_ShaderParameters;
+        ShaderParameters m_ShaderParameters[ShaderType::NUM_COMPILE_SHADER_STAGES];
 	};
 }
 

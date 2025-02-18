@@ -9,6 +9,9 @@
 #include "BlackPearl/RHI/RHIGlobals.h"
 #include "BlackPearl/RHI/OpenGLRHI/OpenGLProgramBinaryFileCache.h"
 #include "OpenGLState.h"
+#include "OpenGLBuffer.h"
+#include "OpenGLInputLayout.h"
+#include "OpenGLUtil.h"
 //#include "OpenGLFrameBuffer.h"
 //
 //
@@ -37,7 +40,8 @@ namespace BlackPearl
 	extern GLint GMaxOpenGLIntegerSamples;
 	extern GLint GMaxOpenGLTextureFilterAnisotropic;
 	extern GLint GMaxOpenGLDrawBuffers;
-
+	extern EShaderPlatform GMaxRHIShaderPlatform;
+	extern ERHIFeatureLevel::Type GMaxRHIFeatureLevel;
 	bool GUseEmulatedUniformBuffers;
 
 #if GE_PLATFORM_WINDOWS
@@ -746,15 +750,15 @@ namespace BlackPearl
 			else if (RenderTargetIndex == 0)
 			{
 				Texture* RenderTarget2D = PendingState.RenderTargets[RenderTargetIndex];
-				bMSAAEnabled = PendingState.NumRenderingSamples > 1 || RenderTarget2D->IsMultisampled();
+				bMSAAEnabled = PendingState.NumRenderingSamples > 1 || RenderTarget2D->getDesc().sampleCount>1;
 			}
 
-			const FOpenGLBlendStateData::FRenderTarget& RenderTargetBlendState = PendingState.BlendState.RenderTargets[RenderTargetIndex];
-			FOpenGLBlendStateData::FRenderTarget& CachedRenderTargetBlendState = ContextState.BlendState.RenderTargets[RenderTargetIndex];
+			const BlendState::RenderTarget& RenderTargetBlendState = PendingState.BlendState.targets[RenderTargetIndex];
+			BlendState::RenderTarget& CachedRenderTargetBlendState = ContextState.BlendState.targets[RenderTargetIndex];
 
-			if (CachedRenderTargetBlendState.bAlphaBlendEnable != RenderTargetBlendState.bAlphaBlendEnable)
+			if (CachedRenderTargetBlendState.blendEnable != RenderTargetBlendState.blendEnable)
 			{
-				if (RenderTargetBlendState.bAlphaBlendEnable)
+				if (RenderTargetBlendState.blendEnable)
 				{
 					FOpenGL::EnableIndexed(GL_BLEND, RenderTargetIndex);
 				}
@@ -762,67 +766,68 @@ namespace BlackPearl
 				{
 					FOpenGL::DisableIndexed(GL_BLEND, RenderTargetIndex);
 				}
-				CachedRenderTargetBlendState.bAlphaBlendEnable = RenderTargetBlendState.bAlphaBlendEnable;
+				CachedRenderTargetBlendState.blendEnable = RenderTargetBlendState.blendEnable;
 			}
 
-			if (RenderTargetBlendState.bAlphaBlendEnable)
+			if (RenderTargetBlendState.blendEnable)
 			{
+				/*glBlendFuncSeparatei 特别适用于 多渲染目标（MRT）渲染中，因为每个渲染目标可能需要不同的混合行为*/
 				if (FOpenGL::SupportsSeparateAlphaBlend())
 				{
 					// Set current blend per stage
 					if (RenderTargetBlendState.bSeparateAlphaBlendEnable)
 					{
-						if (CachedRenderTargetBlendState.ColorSourceBlendFactor != RenderTargetBlendState.ColorSourceBlendFactor
-							|| CachedRenderTargetBlendState.ColorDestBlendFactor != RenderTargetBlendState.ColorDestBlendFactor
-							|| CachedRenderTargetBlendState.AlphaSourceBlendFactor != RenderTargetBlendState.AlphaSourceBlendFactor
-							|| CachedRenderTargetBlendState.AlphaDestBlendFactor != RenderTargetBlendState.AlphaDestBlendFactor)
+						if (CachedRenderTargetBlendState.srcBlend != RenderTargetBlendState.srcBlend
+							|| CachedRenderTargetBlendState.destBlend != RenderTargetBlendState.destBlend
+							|| CachedRenderTargetBlendState.srcBlendAlpha != RenderTargetBlendState.srcBlendAlpha
+							|| CachedRenderTargetBlendState.destBlendAlpha != RenderTargetBlendState.destBlendAlpha)
 						{
 							FOpenGL::BlendFuncSeparatei(
 								RenderTargetIndex,
-								RenderTargetBlendState.ColorSourceBlendFactor, RenderTargetBlendState.ColorDestBlendFactor,
-								RenderTargetBlendState.AlphaSourceBlendFactor, RenderTargetBlendState.AlphaDestBlendFactor
+								RenderTargetBlendState.srcBlend, RenderTargetBlendState.destBlend,
+								RenderTargetBlendState.srcBlendAlpha, RenderTargetBlendState.destBlendAlpha
 							);
 						}
 
-						if (CachedRenderTargetBlendState.ColorBlendOperation != RenderTargetBlendState.ColorBlendOperation
-							|| CachedRenderTargetBlendState.AlphaBlendOperation != RenderTargetBlendState.AlphaBlendOperation)
+						if (CachedRenderTargetBlendState.blendOp != RenderTargetBlendState.blendOp
+							|| CachedRenderTargetBlendState.blendOpAlpha != RenderTargetBlendState.blendOpAlpha)
 						{
 							FOpenGL::BlendEquationSeparatei(
 								RenderTargetIndex,
-								RenderTargetBlendState.ColorBlendOperation,
-								RenderTargetBlendState.AlphaBlendOperation
+								OpenGLUtil::convertBlendOp(RenderTargetBlendState.blendOp),
+								OpenGLUtil::convertBlendOp(RenderTargetBlendState.blendOpAlpha)
 							);
 						}
 					}
 					else
 					{
-						if (CachedRenderTargetBlendState.ColorSourceBlendFactor != RenderTargetBlendState.ColorSourceBlendFactor
-							|| CachedRenderTargetBlendState.ColorDestBlendFactor != RenderTargetBlendState.ColorDestBlendFactor
-							|| CachedRenderTargetBlendState.AlphaSourceBlendFactor != RenderTargetBlendState.AlphaSourceBlendFactor
-							|| CachedRenderTargetBlendState.AlphaDestBlendFactor != RenderTargetBlendState.AlphaDestBlendFactor)
+						if (CachedRenderTargetBlendState.srcBlend != RenderTargetBlendState.srcBlend
+							|| CachedRenderTargetBlendState.destBlend != RenderTargetBlendState.destBlend
+							|| CachedRenderTargetBlendState.srcBlendAlpha != RenderTargetBlendState.srcBlendAlpha
+							|| CachedRenderTargetBlendState.destBlendAlpha != RenderTargetBlendState.destBlendAlpha)
 						{
-							FOpenGL::BlendFunci(RenderTargetIndex, RenderTargetBlendState.ColorSourceBlendFactor, RenderTargetBlendState.ColorDestBlendFactor);
+							FOpenGL::BlendFunci(RenderTargetIndex, RenderTargetBlendState.srcBlend, RenderTargetBlendState.destBlend);
 						}
 
-						if (CachedRenderTargetBlendState.ColorBlendOperation != RenderTargetBlendState.ColorBlendOperation)
+						if (CachedRenderTargetBlendState.blendOp != RenderTargetBlendState.blendOp)
 						{
-							FOpenGL::BlendEquationi(RenderTargetIndex, RenderTargetBlendState.ColorBlendOperation);
+							FOpenGL::BlendEquationi(RenderTargetIndex, OpenGLUtil::convertBlendOp(RenderTargetBlendState.blendOp));
 						}
 					}
 
 					CachedRenderTargetBlendState.bSeparateAlphaBlendEnable = RenderTargetBlendState.bSeparateAlphaBlendEnable;
-					CachedRenderTargetBlendState.ColorBlendOperation = RenderTargetBlendState.ColorBlendOperation;
-					CachedRenderTargetBlendState.ColorSourceBlendFactor = RenderTargetBlendState.ColorSourceBlendFactor;
-					CachedRenderTargetBlendState.ColorDestBlendFactor = RenderTargetBlendState.ColorDestBlendFactor;
+					CachedRenderTargetBlendState.blendOp = RenderTargetBlendState.blendOp;
+					CachedRenderTargetBlendState.srcBlend = RenderTargetBlendState.srcBlend;
+					CachedRenderTargetBlendState.destBlend = RenderTargetBlendState.destBlend;
 					if (RenderTargetBlendState.bSeparateAlphaBlendEnable)
 					{
-						CachedRenderTargetBlendState.AlphaSourceBlendFactor = RenderTargetBlendState.AlphaSourceBlendFactor;
-						CachedRenderTargetBlendState.AlphaDestBlendFactor = RenderTargetBlendState.AlphaDestBlendFactor;
+						CachedRenderTargetBlendState.srcBlendAlpha = RenderTargetBlendState.srcBlendAlpha;
+						CachedRenderTargetBlendState.destBlendAlpha = RenderTargetBlendState.destBlendAlpha;
 					}
 					else
 					{
-						CachedRenderTargetBlendState.AlphaSourceBlendFactor = RenderTargetBlendState.ColorSourceBlendFactor;
-						CachedRenderTargetBlendState.AlphaDestBlendFactor = RenderTargetBlendState.ColorDestBlendFactor;
+						CachedRenderTargetBlendState.srcBlendAlpha = RenderTargetBlendState.srcBlend;
+						CachedRenderTargetBlendState.destBlendAlpha = RenderTargetBlendState.destBlend;
 					}
 				}
 				else
@@ -831,12 +836,12 @@ namespace BlackPearl
 					{
 						// Detect the case of subsequent render target needing different blend setup than one already set in this call.
 						if (CachedRenderTargetBlendState.bSeparateAlphaBlendEnable != RenderTargetBlendState.bSeparateAlphaBlendEnable
-							|| CachedRenderTargetBlendState.ColorBlendOperation != RenderTargetBlendState.ColorBlendOperation
-							|| CachedRenderTargetBlendState.ColorSourceBlendFactor != RenderTargetBlendState.ColorSourceBlendFactor
-							|| CachedRenderTargetBlendState.ColorDestBlendFactor != RenderTargetBlendState.ColorDestBlendFactor
+							|| CachedRenderTargetBlendState.blendOp != RenderTargetBlendState.blendOp
+							|| CachedRenderTargetBlendState.srcBlend != RenderTargetBlendState.srcBlend
+							|| CachedRenderTargetBlendState.destBlend != RenderTargetBlendState.destBlend
 							|| (RenderTargetBlendState.bSeparateAlphaBlendEnable &&
-								(CachedRenderTargetBlendState.AlphaSourceBlendFactor != RenderTargetBlendState.AlphaSourceBlendFactor
-									|| CachedRenderTargetBlendState.AlphaDestBlendFactor != RenderTargetBlendState.AlphaDestBlendFactor
+								(CachedRenderTargetBlendState.srcBlendAlpha != RenderTargetBlendState.srcBlendAlpha
+									|| CachedRenderTargetBlendState.destBlendAlpha != RenderTargetBlendState.destBlendAlpha
 									)
 								)
 							)
@@ -847,40 +852,40 @@ namespace BlackPearl
 						// Set current blend to all stages
 						if (RenderTargetBlendState.bSeparateAlphaBlendEnable)
 						{
-							if (CachedRenderTargetBlendState.ColorSourceBlendFactor != RenderTargetBlendState.ColorSourceBlendFactor
-								|| CachedRenderTargetBlendState.ColorDestBlendFactor != RenderTargetBlendState.ColorDestBlendFactor
-								|| CachedRenderTargetBlendState.AlphaSourceBlendFactor != RenderTargetBlendState.AlphaSourceBlendFactor
-								|| CachedRenderTargetBlendState.AlphaDestBlendFactor != RenderTargetBlendState.AlphaDestBlendFactor)
+							if (CachedRenderTargetBlendState.srcBlend != RenderTargetBlendState.srcBlend
+								|| CachedRenderTargetBlendState.destBlend != RenderTargetBlendState.destBlend
+								|| CachedRenderTargetBlendState.srcBlendAlpha != RenderTargetBlendState.srcBlendAlpha
+								|| CachedRenderTargetBlendState.destBlendAlpha != RenderTargetBlendState.destBlendAlpha)
 							{
 								glBlendFuncSeparate(
-									RenderTargetBlendState.ColorSourceBlendFactor, RenderTargetBlendState.ColorDestBlendFactor,
-									RenderTargetBlendState.AlphaSourceBlendFactor, RenderTargetBlendState.AlphaDestBlendFactor
+									RenderTargetBlendState.srcBlend, RenderTargetBlendState.destBlend,
+									RenderTargetBlendState.srcBlendAlpha, RenderTargetBlendState.destBlendAlpha
 								);
 							}
 
-							if (CachedRenderTargetBlendState.ColorBlendOperation != RenderTargetBlendState.ColorBlendOperation
-								|| CachedRenderTargetBlendState.AlphaBlendOperation != RenderTargetBlendState.AlphaBlendOperation)
+							if (CachedRenderTargetBlendState.blendOp != RenderTargetBlendState.blendOp
+								|| CachedRenderTargetBlendState.blendOpAlpha != RenderTargetBlendState.blendOpAlpha)
 							{
 								glBlendEquationSeparate(
-									RenderTargetBlendState.ColorBlendOperation,
-									RenderTargetBlendState.AlphaBlendOperation
+									OpenGLUtil::convertBlendOp(RenderTargetBlendState.blendOp),
+									OpenGLUtil::convertBlendOp(RenderTargetBlendState.blendOpAlpha)
 								);
 							}
 						}
 						else
 						{
-							if (CachedRenderTargetBlendState.ColorSourceBlendFactor != RenderTargetBlendState.ColorSourceBlendFactor
-								|| CachedRenderTargetBlendState.ColorDestBlendFactor != RenderTargetBlendState.ColorDestBlendFactor
-								|| CachedRenderTargetBlendState.AlphaSourceBlendFactor != RenderTargetBlendState.AlphaSourceBlendFactor
-								|| CachedRenderTargetBlendState.AlphaDestBlendFactor != RenderTargetBlendState.AlphaDestBlendFactor)
+							if (CachedRenderTargetBlendState.srcBlend != RenderTargetBlendState.srcBlend
+								|| CachedRenderTargetBlendState.destBlend != RenderTargetBlendState.destBlend
+								|| CachedRenderTargetBlendState.srcBlendAlpha != RenderTargetBlendState.srcBlendAlpha
+								|| CachedRenderTargetBlendState.destBlendAlpha != RenderTargetBlendState.destBlendAlpha)
 							{
-								glBlendFunc(RenderTargetBlendState.ColorSourceBlendFactor, RenderTargetBlendState.ColorDestBlendFactor);
+								glBlendFunc(RenderTargetBlendState.srcBlend, RenderTargetBlendState.destBlend);
 							}
 
-							if (CachedRenderTargetBlendState.ColorBlendOperation != RenderTargetBlendState.ColorBlendOperation
-								|| CachedRenderTargetBlendState.AlphaBlendOperation != RenderTargetBlendState.ColorBlendOperation)
+							if (CachedRenderTargetBlendState.blendOp != RenderTargetBlendState.blendOp
+								|| CachedRenderTargetBlendState.blendOpAlpha != RenderTargetBlendState.blendOp)
 							{
-								glBlendEquation(RenderTargetBlendState.ColorBlendOperation);
+								glBlendEquation(OpenGLUtil::convertBlendOp(RenderTargetBlendState.blendOp));
 							}
 						}
 
@@ -889,22 +894,22 @@ namespace BlackPearl
 						{
 							FOpenGLBlendStateData::FRenderTarget& CachedRenderTargetBlendState2 = ContextState.BlendState.RenderTargets[RenderTargetIndex2];
 							CachedRenderTargetBlendState2.bSeparateAlphaBlendEnable = RenderTargetBlendState.bSeparateAlphaBlendEnable;
-							CachedRenderTargetBlendState2.ColorBlendOperation = RenderTargetBlendState.ColorBlendOperation;
-							CachedRenderTargetBlendState2.ColorSourceBlendFactor = RenderTargetBlendState.ColorSourceBlendFactor;
-							CachedRenderTargetBlendState2.ColorDestBlendFactor = RenderTargetBlendState.ColorDestBlendFactor;
+							CachedRenderTargetBlendState2.blendOp = RenderTargetBlendState.blendOp;
+							CachedRenderTargetBlendState2.srcBlend = RenderTargetBlendState.srcBlend;
+							CachedRenderTargetBlendState2.destBlend = RenderTargetBlendState.destBlend;
 							if (RenderTargetBlendState.bSeparateAlphaBlendEnable)
 							{
-								CachedRenderTargetBlendState2.AlphaBlendOperation = RenderTargetBlendState.AlphaBlendOperation;
-								CachedRenderTargetBlendState2.AlphaSourceBlendFactor = RenderTargetBlendState.AlphaSourceBlendFactor;
-								CachedRenderTargetBlendState2.AlphaDestBlendFactor = RenderTargetBlendState.AlphaDestBlendFactor;
-								CachedRenderTargetBlendState2.AlphaBlendOperation = RenderTargetBlendState.AlphaBlendOperation;
+								CachedRenderTargetBlendState2.blendOpAlpha = RenderTargetBlendState.blendOpAlpha;
+								CachedRenderTargetBlendState2.srcBlendAlpha = RenderTargetBlendState.srcBlendAlpha;
+								CachedRenderTargetBlendState2.destBlendAlpha = RenderTargetBlendState.destBlendAlpha;
+								CachedRenderTargetBlendState2.blendOpAlpha = RenderTargetBlendState.blendOpAlpha;
 							}
 							else
 							{
-								CachedRenderTargetBlendState2.AlphaBlendOperation = RenderTargetBlendState.ColorBlendOperation;
-								CachedRenderTargetBlendState2.AlphaSourceBlendFactor = RenderTargetBlendState.ColorSourceBlendFactor;
-								CachedRenderTargetBlendState2.AlphaDestBlendFactor = RenderTargetBlendState.ColorDestBlendFactor;
-								CachedRenderTargetBlendState2.AlphaBlendOperation = RenderTargetBlendState.ColorBlendOperation;
+								CachedRenderTargetBlendState2.blendOpAlpha = RenderTargetBlendState.blendOp;
+								CachedRenderTargetBlendState2.srcBlendAlpha = RenderTargetBlendState.srcBlend;
+								CachedRenderTargetBlendState2.destBlendAlpha = RenderTargetBlendState.destBlend;
+								CachedRenderTargetBlendState2.blendOpAlpha = RenderTargetBlendState.blendOp;
 							}
 						}
 
@@ -1119,6 +1124,15 @@ namespace BlackPearl
 
   
 
+	// Vertex state.
+	void Device::RHISetStreamSource(uint32_t StreamIndex, Buffer* VertexBufferRHI, uint32_t Offset)
+	{
+		//VERIFY_GL_SCOPE();
+		VertexBuffer* vertexBuffer = static_cast<VertexBuffer*>(VertexBufferRHI);
+		PendingState.Streams[StreamIndex].VertexBufferResource = vertexBuffer ? vertexBuffer->rendererID : 0;
+		PendingState.Streams[StreamIndex].Stride = PendingState.BoundShaderState ? PendingState.BoundShaderState->StreamStrides[StreamIndex] : 0;
+		PendingState.Streams[StreamIndex].Offset = Offset;
+	}
 
 //	template <typename StateType>
 //	void Device::SetupTexturesForDraw(FOpenGLContextState& ContextState, const StateType& ShaderState, int32_t MaxTexturesNeeded)
@@ -1184,60 +1198,60 @@ namespace BlackPearl
 
 		//check(IsValidRef(PendingState.BoundShaderState));
 		InputLayout* VertexDeclaration = PendingState.BoundShaderState->VertexDeclaration;
-		const CrossCompiler::FShaderBindingInOutMask& AttributeMask = PendingState.BoundShaderState->GetVertexShader()->Bindings.InOutMask;
-
-		if (ContextState.VertexDecl != VertexDeclaration || AttributeMask.Bitmask != ContextState.VertexAttrs_EnabledBits)
+		//const CrossCompiler::FShaderBindingInOutMask& AttributeMask = PendingState.BoundShaderState->GetVertexShader()->Bindings.InOutMask;
+		// || AttributeMask.Bitmask != ContextState.VertexAttrs_EnabledBits
+		if (ContextState.VertexDecl != VertexDeclaration)
 		{
 			StreamMask = 0;
 			UpdateDivisors = true;
 
-			check(VertexDeclaration->VertexElements.Num() <= 32);
+			//check(VertexDeclaration->VertexElements.Num() <= 32);
 
-			for (int32_t ElementIndex = 0; ElementIndex < VertexDeclaration->VertexElements.Num(); ElementIndex++)
+			for (int32_t ElementIndex = 0; ElementIndex < VertexDeclaration->getNumAttributes(); ElementIndex++)
 			{
-				FOpenGLVertexElement& VertexElement = VertexDeclaration->VertexElements[ElementIndex];
-				uint32_t AttributeIndex = VertexElement.AttributeIndex;
-				const uint32_t StreamIndex = VertexElement.StreamIndex;
+				VertexAttributeDesc& VertexElement = VertexDeclaration->inputDesc[ElementIndex];
+				uint32_t AttributeIndex = VertexElement.bufferIndex;
+				const uint32_t StreamIndex = VertexElement.streamIndex;
 
 				//only setup/track attributes actually in use
 				FOpenGLCachedAttr& Attr = ContextState.VertexAttrs[AttributeIndex];
-				if (AttributeMask.IsFieldEnabled(AttributeIndex))
+				//if (AttributeMask.IsFieldEnabled(AttributeIndex))
 				{
-					if (VertexElement.StreamIndex < NumStreams)
+					if (VertexElement.streamIndex < NumStreams)
 					{
 						// Track the actively used streams, to limit the updates to those in use
-						StreamMask |= 0x1 << VertexElement.StreamIndex;
+						StreamMask |= 0x1 << VertexElement.streamIndex;
 
 						// Verify that the Divisor is consistent across the stream
-						check(!KnowsDivisor[StreamIndex] || Divisor[StreamIndex] == VertexElement.Divisor);
+						//assert(!KnowsDivisor[StreamIndex] || Divisor[StreamIndex] == VertexElement.Divisor);
 						KnowsDivisor[StreamIndex] = true;
-						Divisor[StreamIndex] = VertexElement.Divisor;
+						Divisor[StreamIndex] = VertexElement.divisor;
 
-						if ((Attr.StreamOffset != VertexElement.Offset) || //-V1013
-							(Attr.Size != VertexElement.Size) ||
-							(Attr.Type != VertexElement.Type) ||
+						if ((Attr.StreamOffset != VertexElement.offset) || //-V1013
+							(Attr.Size != VertexElement.elementStride) ||
+							(Attr.name != VertexElement.name) ||
 							(Attr.bNormalized != VertexElement.bNormalized) ||
 							(Attr.bShouldConvertToFloat != VertexElement.bShouldConvertToFloat))
 						{
 							if (!VertexElement.bShouldConvertToFloat)
 							{
-								FOpenGL::VertexAttribIFormat(AttributeIndex, VertexElement.Size, VertexElement.Type, VertexElement.Offset);
+								FOpenGL::VertexAttribIFormat(AttributeIndex, VertexElement.elementStride, FormatToBufferType(VertexElement.format), VertexElement.offset);
 							}
 							else
 							{
-								FOpenGL::VertexAttribFormat(AttributeIndex, VertexElement.Size, VertexElement.Type, VertexElement.bNormalized, VertexElement.Offset);
+								FOpenGL::VertexAttribFormat(AttributeIndex, VertexElement.elementStride, FormatToBufferType(VertexElement.format), VertexElement.bNormalized, VertexElement.offset);
 							}
 
-							Attr.StreamOffset = VertexElement.Offset;
-							Attr.Size = VertexElement.Size;
-							Attr.Type = VertexElement.Type;
+							Attr.StreamOffset = VertexElement.offset;
+							Attr.Size = VertexElement.elementStride;
+							Attr.Type = FormatToBufferType(VertexElement.format);
 							Attr.bNormalized = VertexElement.bNormalized;
 							Attr.bShouldConvertToFloat = VertexElement.bShouldConvertToFloat;
 						}
 
 						if (Attr.StreamIndex != StreamIndex)
 						{
-							FOpenGL::VertexAttribBinding(AttributeIndex, VertexElement.StreamIndex);
+							FOpenGL::VertexAttribBinding(AttributeIndex, VertexElement.streamIndex);
 							Attr.StreamIndex = StreamIndex;
 						}
 
@@ -1250,7 +1264,7 @@ namespace BlackPearl
 					else
 					{
 						//workaround attributes with no streams
-						VERIFY_GL_SCOPE();
+					//	VERIFY_GL_SCOPE();
 
 						if (ContextState.GetVertexAttrEnabled(AttributeIndex))
 						{
@@ -1261,20 +1275,20 @@ namespace BlackPearl
 						glVertexAttrib4fv(AttributeIndex, data);
 					}
 				}
-				else
+				/*else
 				{
 					if (Attr.StreamIndex != StreamIndex)
 					{
 						FOpenGL::VertexAttribBinding(AttributeIndex, VertexElement.StreamIndex);
 						Attr.StreamIndex = StreamIndex;
 					}
-				}
+				}*/
 			}
 			ContextState.VertexDecl = VertexDeclaration;
 		}
 
-		// Disable remaining vertex arrays
-		uint32_t NotUsedButEnabledAttrMask = (ContextState.VertexAttrs_EnabledBits & ~(AttributeMask.Bitmask));
+		//TODO:: Disable remaining vertex arrays
+	/*	uint32_t NotUsedButEnabledAttrMask = (ContextState.VertexAttrs_EnabledBits & ~(AttributeMask.Bitmask));
 		for (GLuint AttribIndex = 0; AttribIndex < NUM_OPENGL_VERTEX_STREAMS && NotUsedButEnabledAttrMask; AttribIndex++)
 		{
 			if (NotUsedButEnabledAttrMask & 1)
@@ -1283,7 +1297,7 @@ namespace BlackPearl
 				ContextState.SetVertexAttrEnabled(AttribIndex, false);
 			}
 			NotUsedButEnabledAttrMask >>= 1;
-		}
+		}*/
 
 		// Active streams that are no used by this draw
 		uint32_t NotUsedButActiveStreamMask = (ContextState.ActiveStreamMask & ~(StreamMask));
@@ -1322,7 +1336,7 @@ namespace BlackPearl
 				}
 				else
 				{
-					UE_LOG(LogRHI, Error, TEXT("Stream %d marked as in use, but vertex buffer provided is NULL (Mask = %x)"), StreamIndex, StreamMask);
+					//UE_LOG(LogRHI, Error, TEXT("Stream %d marked as in use, but vertex buffer provided is NULL (Mask = %x)"), StreamIndex, StreamMask);
 
 					FOpenGL::BindVertexBuffer(StreamIndex, 0, 0, 0);
 					CachedStream.VertexBufferResource = 0;
@@ -1372,7 +1386,7 @@ namespace BlackPearl
                 {
                     glEnable(GL_CULL_FACE);
                 }
-                glCullFace(OpenGLUtil::convertCullMode(PendingState.RasterizerState.cullMode);
+                glCullFace(OpenGLUtil::convertCullMode(PendingState.RasterizerState.cullMode));
             }
             else
             {

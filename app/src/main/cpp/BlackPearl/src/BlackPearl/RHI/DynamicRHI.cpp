@@ -71,10 +71,6 @@ namespace BlackPearl {
 
 
 
-	EShaderPlatform GMaxRHIShaderPlatform = SP_PCD3D_SM5;
-
-	/** The maximum feature level supported on this machine */
-	ERHIFeatureLevel::Type GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
 
 	bool IsRHIDeviceAMD()
 	{

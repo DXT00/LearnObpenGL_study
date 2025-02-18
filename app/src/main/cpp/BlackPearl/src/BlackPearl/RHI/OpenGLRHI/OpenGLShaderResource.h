@@ -3,6 +3,9 @@
 #include <string>
 #include "OpenGLDriver/OpenGLDrv.h"
 #include "../RHIDefinitions.h"
+#include "../RHIShader.h"
+#include "BlackPearl/Renderer/Shader/CrossCompilerCommon.h"
+
 namespace BlackPearl {
 
 
@@ -137,7 +140,8 @@ namespace BlackPearl {
 	/**
 	 * Caching of OpenGL uniform parameters.
 	 */
-	class FOpenGLShaderParameterCache
+	class FOpenGLLinkedProgram;
+	class FOpenGLShaderParameterCache :public ShaderParameters
 	{
 	public:
 		/** Constructor. */
@@ -162,14 +166,15 @@ namespace BlackPearl {
 		 * Commit shader parameters to the currently bound program.
 		 * @param ParameterTable - Information on the bound uniform arrays for the program.
 		 */
-		 /*void CommitPackedGlobals(const FOpenGLLinkedProgram* LinkedProgram, int32_t Stage);
+		 void CommitPackedGlobals(const FOpenGLLinkedProgram* LinkedProgram, int32_t Stage);
 
-		 void CommitPackedUniformBuffers(FOpenGLLinkedProgram* LinkedProgram, int32_t Stage, FRHIUniformBuffer** UniformBuffers, const TArray<CrossCompiler::FUniformBufferCopyInfo>& UniformBuffersCopyInfo);*/
+		 //void CommitPackedUniformBuffers(FOpenGLLinkedProgram* LinkedProgram, int32_t Stage, FRHIUniformBuffer** UniformBuffers, const TArray<CrossCompiler::FUniformBufferCopyInfo>& UniformBuffersCopyInfo);
+		 void CommitPackedUniformBuffers(FOpenGLLinkedProgram* LinkedProgram, int32_t Stage, const std::vector<IBindingSet*> bindings);
 
 	private:
 
 		/** CPU memory block for storing uniform values. */
-		//uint8_t* PackedGlobalUniforms[CrossCompiler::PACKED_TYPEINDEX_MAX];
+		uint8_t* PackedGlobalUniforms[CrossCompiler::PACKED_TYPEINDEX_MAX];
 
 		struct FRange
 		{
@@ -179,10 +184,10 @@ namespace BlackPearl {
 			void MarkDirtyRange(uint32_t NewStartVector, uint32_t NewNumVectors);
 		};
 		///** Dirty ranges for each uniform array. */
-		//FRange	PackedGlobalUniformDirty[CrossCompiler::PACKED_TYPEINDEX_MAX];
+		FRange	PackedGlobalUniformDirty[CrossCompiler::PACKED_TYPEINDEX_MAX];
 
-		///** Scratch CPU memory block for uploading packed uniforms. */
-		//uint8_t* PackedUniformsScratch[CrossCompiler::PACKED_TYPEINDEX_MAX];
+		/** Scratch CPU memory block for uploading packed uniforms. */
+		uint8_t* PackedUniformsScratch[CrossCompiler::PACKED_TYPEINDEX_MAX];
 
 		/** in bytes */
 		int32_t GlobalUniformArraySize;

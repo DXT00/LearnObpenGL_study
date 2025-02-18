@@ -15,8 +15,8 @@ namespace BlackPearl {
 	{
 	public:
 		static void ShowGBuffer(unsigned int row, unsigned int col, Object* quad, std::shared_ptr<GBuffer> gBuffer, std::vector<TextureHandle>textures);
-        static void ShowFrameBuffer(unsigned int row, unsigned int col, Object* quad, std::shared_ptr<FrameBuffer> frameBuffer, std::vector<TextureHandle >textures);
-        static void ShowFrameBuffer(glm::vec4 viewPort, Object* quad, std::shared_ptr<FrameBuffer> frameBuffer, TextureHandle texture, bool isMipmap, int lod);
+        static void ShowFrameBuffer(unsigned int row, unsigned int col, Object* quad, IBuffer* frameBuffer, std::vector<TextureHandle >textures);
+        static void ShowFrameBuffer(glm::vec4 viewPort, Object* quad, IBuffer* frameBuffer, TextureHandle texture, bool isMipmap, int lod);
         static void ShowTextures(unsigned int row, unsigned int col, Object* quad, std::vector<TextureHandle>textures);
         static void ShowTexture(glm::vec4 viewPort, Object* quad, TextureHandle texture, bool isMipmap, int lod = 0);
     };

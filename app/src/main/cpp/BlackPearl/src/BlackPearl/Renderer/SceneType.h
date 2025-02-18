@@ -34,7 +34,7 @@
 #include "BlackPearl/Math/frustum.h"
 #include "BlackPearl/RHI/RHITexture.h"
 #include "BlackPearl/Renderer/DescriptorTableManager.h"
-#include "BlackPearl/Renderer/Buffer/Buffer.h"
+//#include "BlackPearl/Renderer/Buffer/Buffer.h"
 struct MaterialConstants;
 struct LightConstants;
 struct LightProbeConstants;

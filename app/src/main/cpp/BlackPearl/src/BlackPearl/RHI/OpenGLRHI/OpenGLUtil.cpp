@@ -136,4 +136,95 @@ namespace BlackPearl {
         }
     }
 
+	GLenum OpenGLUtil::convertBlendValue(BlendFactor value)
+	{
+		switch (value)
+		{
+		case BlendFactor::Zero:
+			return GL_ZERO;
+
+		case BlendFactor::One:
+			return GL_ONE;
+
+		case BlendFactor::SrcColor:
+			return GL_SRC_COLOR;
+
+		case BlendFactor::OneMinusSrcColor:
+			return GL_ONE_MINUS_SRC_COLOR;
+
+		case BlendFactor::SrcAlpha:
+			return GL_SRC_ALPHA;
+
+		case BlendFactor::OneMinusSrcAlpha:
+			return GL_ONE_MINUS_SRC_ALPHA;
+
+		case BlendFactor::DstAlpha:
+			return GL_DST_ALPHA;
+
+		case BlendFactor::OneMinusDstAlpha:
+			return GL_ONE_MINUS_DST_ALPHA;
+
+		case BlendFactor::DstColor:
+			return GL_DST_COLOR;
+
+		case BlendFactor::OneMinusDstColor:
+			return GL_ONE_MINUS_DST_COLOR;
+
+		case BlendFactor::SrcAlphaSaturate:
+			return GL_SRC_ALPHA_SATURATE;
+
+		case BlendFactor::ConstantColor:
+			return GL_CONSTANT_COLOR;
+
+		case BlendFactor::OneMinusConstantColor:
+			return GL_ONE_MINUS_CONSTANT_COLOR;
+
+		case BlendFactor::Src1Color:
+			return GL_SRC1_COLOR;
+
+		case BlendFactor::OneMinusSrc1Color:
+			return GL_ONE_MINUS_SRC1_COLOR;
+
+		case BlendFactor::Src1Alpha:
+			return GL_SRC1_ALPHA;
+
+		case BlendFactor::OneMinusSrc1Alpha:
+			return GL_ONE_MINUS_SRC1_ALPHA;
+
+		default:
+			assert(0);
+			return GL_ONE;
+		}
+	}
+
+	GLenum OpenGLUtil::convertBlendOp(BlendOp op)
+	{
+		switch (op)
+		{
+		case BlendOp::Add:
+			return GL_FUNC_ADD;
+
+		case BlendOp::Subrtact:
+			return GL_FUNC_SUBTRACT;
+
+		case BlendOp::ReverseSubtract:
+			return GL_FUNC_REVERSE_SUBTRACT;
+
+		case BlendOp::Min:
+			return GL_MIN;
+
+		case BlendOp::Max:
+			return GL_MAX;
+
+		default:
+			assert(0);
+			return GL_FUNC_ADD;
+		}
+	}
+
+	VkColorComponentFlags OpenGLUtil::convertColorMask(ColorMask mask)
+	{
+		return VkColorComponentFlags(uint8_t(mask));
+	}
+
 }

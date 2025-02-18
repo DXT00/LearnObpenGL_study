@@ -5,26 +5,10 @@
 #include "BlackPearl/RHI/OpenGLRHI/OpenGLBuffer.h"
 #include "BlackPearl/RHI/OpenGLRHI/OpenGLBufferResource.h"
 #include "BlackPearl/Core.h"
-namespace BlackPearl {
-	static uint32_t ShaderDataTypeToBufferType(const ElementDataType& type) {
+#include "BlackPearl/RHI/OpenGLRHI/OpenGLInputLayout.h"
 
-		switch (type) {
-		case ElementDataType::Int:      return GL_INT;
-		case ElementDataType::Int2:     return GL_INT;
-		case ElementDataType::Int3:     return GL_INT;
-		case ElementDataType::Int4:     return GL_INT;
-		case ElementDataType::Float:    return GL_FLOAT;
-		case ElementDataType::Float2:   return GL_FLOAT;
-		case ElementDataType::Float3:   return GL_FLOAT;
-		case ElementDataType::Float4:   return GL_FLOAT;
-		case ElementDataType::Mat3:		return GL_FLOAT;
-		case ElementDataType::Mat4:		return GL_FLOAT;
-		case ElementDataType::False:	return GL_FALSE;
-		case ElementDataType::True:		return GL_TRUE;
-		}
-		GE_ASSERT(false, "Unknown ShaderDataType!")
-			return 0;
-	}
+namespace BlackPearl {
+
 	VertexArray::VertexArray(bool interleaved, uint32_t target)
 	{
 		m_IndirectBuffer = nullptr;

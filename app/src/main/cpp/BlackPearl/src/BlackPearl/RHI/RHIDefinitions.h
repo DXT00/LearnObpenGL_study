@@ -7,9 +7,104 @@
 #include <string>
 #include <vector>
 #include "BlackPearl/RHI/Common/Containers.h"
-
+#include "BlackPearl/Math/vector.h"
 namespace BlackPearl {
+    using namespace math;
+    /*    uniform buffer   */
+        /** The base type of a value in a shader parameter structure. */
+    enum EUniformBufferBaseType : uint8_t
+    {
+        UBMT_INVALID,
 
+        // Invalid type when trying to use bool, to have explicit error message to programmer on why
+        // they shouldn't use bool in shader parameter structures.
+        UBMT_BOOL,
+
+        // Parameter types.
+        UBMT_INT32,
+        UBMT_UINT32,
+        UBMT_FLOAT32,
+
+        // RHI resources not tracked by render graph.
+        UBMT_TEXTURE,
+        UBMT_SRV,
+        UBMT_UAV,
+        UBMT_SAMPLER,
+
+        // Resources tracked by render graph.
+        UBMT_RDG_TEXTURE,
+        UBMT_RDG_TEXTURE_ACCESS,
+        UBMT_RDG_TEXTURE_ACCESS_ARRAY,
+        UBMT_RDG_TEXTURE_SRV,
+        UBMT_RDG_TEXTURE_UAV,
+        UBMT_RDG_BUFFER_ACCESS,
+        UBMT_RDG_BUFFER_ACCESS_ARRAY,
+        UBMT_RDG_BUFFER_SRV,
+        UBMT_RDG_BUFFER_UAV,
+        UBMT_RDG_UNIFORM_BUFFER,
+
+        // Nested structure.
+        UBMT_NESTED_STRUCT,
+
+        // Structure that is nested on C++ side, but included on shader side.
+        UBMT_INCLUDED_STRUCT,
+
+        // GPU Indirection reference of struct, like is currently named Uniform buffer.
+        UBMT_REFERENCED_STRUCT,
+
+        // Structure dedicated to setup render targets for a rasterizer pass.
+        UBMT_RENDER_TARGET_BINDING_SLOTS,
+
+        EUniformBufferBaseType_Num,
+        EUniformBufferBaseType_NumBits = 5,
+    };
+    
+    /** The layout of a uniform buffer in memory. */
+    struct UniformBufferLayoutItem {
+        UniformBufferLayoutItem(EUniformBufferBaseType type, void* varying)
+            :type(type),
+            varying(varying)
+        {
+        }
+
+        EUniformBufferBaseType type;
+        void* varying;
+    };
+
+
+    struct UniformBufferLayout
+    {
+        UniformBufferLayout(std::initializer_list<UniformBufferLayoutItem> items) {
+            for (const UniformBufferLayoutItem& item : items)
+            {
+                switch (item.type)
+                {
+                case EUniformBufferBaseType::UBMT_INT32:
+                    UBInt.push_back(*(static_cast<int32_t*>(item.varying)));
+                    break;
+                case EUniformBufferBaseType::UBMT_FLOAT32:
+                    UBFloat.push_back(*(static_cast<float*>(item.varying)));
+                    break;
+                    /*case EUniformBufferBaseType::UBMT_FLOAT32:
+                        UBFloat.push_back(*(static_cast<float*>(item.varying)));
+                        break;
+                    case EUniformBufferBaseType::UBMT_FLOAT32:
+                        UBFloat.push_back(*(static_cast<float*>(item.varying)));
+                        break;*/
+                default:
+                    break;
+                }
+            }
+        }
+        std::vector<int32_t>   UBInt;
+        std::vector<float> UBFloat;
+        std::vector<float2> UBFloat2;
+        std::vector<float3> UBFloat3;
+        std::vector<float4> UBFloat4;
+        std::vector<float4x4> UBFloat4x4;
+        std::vector<float3x3> UBFloat3x3;
+
+    };
     enum
     {
 	    OGL_MAX_UNIFORM_BUFFER_BINDINGS = 12,	
@@ -304,6 +399,8 @@ namespace BlackPearl {
             BlendFactor destBlendAlpha = BlendFactor::Zero;
             BlendOp     blendOpAlpha = BlendOp::Add;
             ColorMask   colorWriteMask = ColorMask::All;
+            /*glBlendFuncSeparatei 特别适用于 多渲染目标（MRT）渲染中，因为每个渲染目标可能需要不同的混合行为*/
+            bool bSeparateAlphaBlendEnable = false;
 
             constexpr RenderTarget& setBlendEnable(bool enable) { blendEnable = enable; return *this; }
             constexpr RenderTarget& enableBlend() { blendEnable = true; return *this; }
@@ -568,7 +665,7 @@ namespace BlackPearl {
         NUM_COMPILE_SHADER_STAGES,
 
         Amplification = NUM_COMPILE_SHADER_STAGES,
-        Mesh,
+        MeshShader,
         AllGraphics,
 
         RayGeneration,

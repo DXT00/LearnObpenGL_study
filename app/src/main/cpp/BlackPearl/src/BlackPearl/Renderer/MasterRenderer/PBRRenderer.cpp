@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "PBRRenderer.h"
-
+#include "BlackPearl/RHI/Common/RHIUtils.h"
+#include "hlsl/core/forward_cb.h"
 namespace BlackPearl {
 
 
@@ -31,6 +32,7 @@ namespace BlackPearl {
 
         InputLayoutHandle inputLayout = m_Device->createInputLayout(inputDescs, uint32_t(std::size(inputDescs)));
 
+        m_ForwardViewCB = m_Device->createBuffer(RHIUtils::CreateStaticConstantBufferDesc(sizeof(ForwardShadingViewConstants), "ForwardShadingViewConstants"));
 
         RHIBindingLayoutDesc viewLayoutDesc;
         viewLayoutDesc.visibility = ShaderType::All;
@@ -47,9 +49,9 @@ namespace BlackPearl {
         BindingLayoutHandle viewBindinglayout = m_Device->createBindingLayout(viewLayoutDesc);
         BindingSetHandle viewBindingset = m_Device->createBindingSet(viewBindingSetDesc, viewBindinglayout);
 
-        m_ShaderParameters.shaderbindings[ShaderType::Pixel].bindingLayouts.push_back(viewBindinglayout);
-        m_ShaderParameters.shaderbindings[ShaderType::Pixel].bindingSets.push_back(viewBindingset);
-        m_ShaderParameters.inputLayout = inputLayout;
+        m_ShaderParameters[ShaderType::Pixel].bindingLayouts.push_back(viewBindinglayout);
+        m_ShaderParameters[ShaderType::Pixel].bindingSets.push_back(viewBindingset);
+        m_ShaderParameters[ShaderType::Vertex].inputLayout = inputLayout;
     }
 
 	void PBRRenderer::Render(ICommandList* commandList, IFramebuffer* targetFramebuffer, Scene* scene)

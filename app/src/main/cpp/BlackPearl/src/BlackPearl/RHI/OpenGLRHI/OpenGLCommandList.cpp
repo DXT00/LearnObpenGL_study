@@ -4,7 +4,9 @@
 #include "OpenGLContext.h"
 #include "OpenGLCommandList.h"
 #include "OpenGLBufferResource.h"
+#include "OpenGLUniformBuffer.h"
 #include "OpenGLBindingSet.h"
+#include "OpenGLState.h"
 #include "BlackPearl/RHI/RHIGlobals.h"
 #include "BlackPearl/RHI/OpenGLRHI/OpenGLDriver/OpenGLDrvPrivate.h"
 
@@ -78,6 +80,11 @@ namespace BlackPearl {
 			ShaderStorageBuffer* ssbo = static_cast<ShaderStorageBuffer*>(buffer);
 			glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo->rendererID);
 			glBufferData(GL_SHADER_STORAGE_BUFFER, dataSize, data, buffer->desc.isDynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+		}
+		else if (buffer->desc.isConstantBuffer) {
+			OpenGLUniformBuffer* ubo = static_cast<OpenGLUniformBuffer*>(buffer);
+			glBindBuffer(GL_UNIFORM_BUFFER, ubo->rendererID);
+			glBufferData(GL_UNIFORM_BUFFER, dataSize, data, buffer->desc.isDynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 		}
 	}
 
@@ -194,7 +201,7 @@ namespace BlackPearl {
 
 	
 		//uniform buffer + texture, sampler...
-		_bindBindingSets(state.bindings);
+		//_bindBindingSets(state.bindings);
 		
 
 		setBoundShaderState(
@@ -203,6 +210,7 @@ namespace BlackPearl {
 				state.pipeline->desc.VS.Get(),
 				state.pipeline->desc.PS.Get(),
 				state.pipeline->desc.GS.Get(),
+				state.bindings,
 				state.pipeline->desc.bFromPSOFileCache
 			)
 		);
@@ -254,9 +262,9 @@ namespace BlackPearl {
 		m_Device->SetupVertexArrays(ContextState, BaseVertexIndex, PendingState.Streams, NUM_OPENGL_VERTEX_STREAMS, VertexCount);
 
 		GLenum DrawMode = GL_TRIANGLES;
-		GLsizei NumElements = 0;
+		GLsizei NumElements = args.vertexCount;
 
-        FindPrimitiveType(PrimitiveType, NumPrimitives, DrawMode, NumElements);
+       // FindPrimitiveType(PrimitiveType, NumPrimitives, DrawMode, NumElements);
 
 		//GPUProfilingData.RegisterGPUWork(NumPrimitives * NumInstances, VertexCount * NumInstances);
 		if (NumInstances == 1)
@@ -405,6 +413,7 @@ namespace BlackPearl {
 	void Device::CommitComputeResourceTables(Shader* ComputeShader)
 	{
 	}
+	// shader->setUniform 在这里
 	void Device::CommitNonComputeShaderConstants()
 	{
 		//VERIFY_GL_SCOPE();
@@ -412,11 +421,11 @@ namespace BlackPearl {
 		FOpenGLLinkedProgram* LinkedProgram = PendingState.BoundShaderState->LinkedProgram;
 		if (GUseEmulatedUniformBuffers)
 		{
-			PendingState.ShaderParameters[CrossCompiler::SHADER_STAGE_VERTEX].CommitPackedUniformBuffers(LinkedProgram, CrossCompiler::SHADER_STAGE_VERTEX, PendingState.BoundUniformBuffers[SF_Vertex], PendingState.BoundShaderState->GetVertexShader()->UniformBuffersCopyInfo);
-			PendingState.ShaderParameters[CrossCompiler::SHADER_STAGE_PIXEL].CommitPackedUniformBuffers(LinkedProgram, CrossCompiler::SHADER_STAGE_PIXEL, PendingState.BoundUniformBuffers[SF_Pixel], PendingState.BoundShaderState->GetPixelShader()->UniformBuffersCopyInfo);
+			PendingState.ShaderParameters[ShaderType::Vertex].CommitPackedUniformBuffers(LinkedProgram, ShaderType::Vertex, PendingState.ShaderParameters[ShaderType::Vertex].bindings);
+			PendingState.ShaderParameters[ShaderType::Pixel].CommitPackedUniformBuffers(LinkedProgram, ShaderType::Pixel, PendingState.ShaderParameters[ShaderType::Pixel].bindings);
 			if (PendingState.BoundShaderState->GetGeometryShader())
 			{
-				PendingState.ShaderParameters[CrossCompiler::SHADER_STAGE_GEOMETRY].CommitPackedUniformBuffers(LinkedProgram, CrossCompiler::SHADER_STAGE_GEOMETRY, PendingState.BoundUniformBuffers[SF_Geometry], PendingState.BoundShaderState->GetGeometryShader()->UniformBuffersCopyInfo);
+				PendingState.ShaderParameters[ShaderType::Geometry].CommitPackedUniformBuffers(LinkedProgram, ShaderType::Geometry, PendingState.ShaderParameters[ShaderType::Geometry].bindings);
 			}
 		}
 
@@ -426,11 +435,11 @@ namespace BlackPearl {
 		}
 
 		// commit packed global only if current program has changed or any global parameter has changed (RHISetShaderParameter)
-		PendingState.ShaderParameters[CrossCompiler::SHADER_STAGE_VERTEX].CommitPackedGlobals(LinkedProgram, CrossCompiler::SHADER_STAGE_VERTEX);
-		PendingState.ShaderParameters[CrossCompiler::SHADER_STAGE_PIXEL].CommitPackedGlobals(LinkedProgram, CrossCompiler::SHADER_STAGE_PIXEL);
+		PendingState.ShaderParameters[ShaderType::Vertex].CommitPackedGlobals(LinkedProgram, LinkedProgram, ShaderType::Vertex);
+		PendingState.ShaderParameters[ShaderType::Pixel].CommitPackedGlobals(LinkedProgram, ShaderType::Pixel);
 		if (PendingState.BoundShaderState->GetGeometryShader())
 		{
-			PendingState.ShaderParameters[CrossCompiler::SHADER_STAGE_GEOMETRY].CommitPackedGlobals(LinkedProgram, CrossCompiler::SHADER_STAGE_GEOMETRY);
+			PendingState.ShaderParameters[ShaderType::Geometry].CommitPackedGlobals(LinkedProgram, ShaderType::Geometry);
 		}
 
 		PendingState.LinkedProgramAndDirtyFlag = LinkedProgram;

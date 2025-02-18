@@ -22,7 +22,7 @@ namespace BlackPearl {
 	class OpenGLUniformBuffer;
 	class Shader;
 	class FOpenGLShaderParameterCache;
-
+	class FOpenGLLinkedProgram;
 #define ZERO_FILLED_DUMMY_UNIFORM_BUFFER_SIZE 65536
 
 struct FOpenGLStream
@@ -93,7 +93,7 @@ public:
 };
 struct FTextureStage
 {
-	class FOpenGLTexture* Texture;
+	class Texture* Texture;
 	class FOpenGLShaderResourceView* SRV;
 	GLenum Target;
 	GLuint Resource;
@@ -141,6 +141,7 @@ struct FOpenGLCachedAttr
 	GLuint StreamIndex;
 	GLboolean bNormalized;
 	GLboolean bShouldConvertToFloat;
+	std::string name;
 
 	FOpenGLCachedAttr() :
 		Size(),
@@ -148,7 +149,8 @@ struct FOpenGLCachedAttr
 		StreamOffset(),
 		StreamIndex(0xFFFFFFFF),
 		bNormalized(),
-		bShouldConvertToFloat()
+		bShouldConvertToFloat(),
+		name("")
 	{
 	}
 };
@@ -339,7 +341,7 @@ struct FOpenGLRHIState final : public FOpenGLCommonState
 
 	// we null this when the we dirty PackedGlobalUniformDirty. Thus we can skip all of CommitNonComputeShaderConstants if it matches the current program
 	FOpenGLLinkedProgram*			LinkedProgramAndDirtyFlag;
-	FOpenGLShaderParameterCache*	ShaderParameters;
+	FOpenGLShaderParameterCache*				ShaderParameters;
 
 	BoundShaderState*	    BoundShaderState;
 	GraphicsPipeline*		GraphicsPipline;

@@ -15,5 +15,11 @@ namespace BlackPearl {
         static GLenum convertFillMode(RasterFillMode mode);
 
         static GLenum convertCullMode(RasterCullMode mode);
+
+        static GLenum convertBlendValue(BlendFactor value);
+
+        static GLenum convertBlendOp(BlendOp op);
+
+        static GLenum convertColorMask(ColorMask mask);
     };
 }

@@ -2,8 +2,8 @@
 #include <glad/glad.h>
 #include "Mesh.h"
 #include "glm/glm.hpp"
-
-#include <BlackPearl/Renderer/Shader/Shader.h>
+#include "BlackPearl/RHI/RHIShader.h"
+//#include <BlackPearl/Renderer/Shader/Shader.h>
 #include "BlackPearl/Renderer/Renderer.h"
 #include <glm/gtc/type_ptr.hpp>
 #include "glm/ext/matrix_transform.hpp"

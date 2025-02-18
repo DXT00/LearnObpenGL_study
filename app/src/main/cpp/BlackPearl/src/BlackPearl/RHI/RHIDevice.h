@@ -34,6 +34,7 @@ namespace BlackPearl {
 		//virtual void unmapStagingTexture(IStagingTexture* tex) = 0;
 
 		virtual BufferHandle createBuffer(const BufferDesc& d) = 0;
+
 		virtual void* mapBuffer(IBuffer* buffer, CpuAccessMode cpuAccess) = 0;
 		virtual void unmapBuffer(IBuffer* buffer) = 0;
 		virtual MemoryRequirements getBufferMemoryRequirements(IBuffer* buffer) = 0;
@@ -118,6 +119,7 @@ namespace BlackPearl {
 		virtual FramebufferHandle createHandleForNativeFramebuffer(VkRenderPass renderPass,
 			VkFramebuffer framebuffer, const FramebufferDesc& desc, bool transferOwnership) = 0;
 #endif
+
 	};
 	typedef RefCountPtr<IDevice> DeviceHandle;
 

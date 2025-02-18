@@ -2,6 +2,8 @@
 #include "OpenGLBuffer.h"
 #include "glad/glad.h"
 #include "OpenGLBufferResource.h"
+
+#include "OpenGLUniformBuffer.h"
 #include "OpenGLDevice.h"
 #include "BlackPearl/Core.h"
 
@@ -27,6 +29,7 @@ namespace BlackPearl {
             buffer = OpenGLBufferFactory::createIndexBuffer(desc);
         }
         else if (desc.isConstantBuffer) {
+            //RHICreateUniformBuffer
             buffer = OpenGLBufferFactory::createUniformBuffer(desc);
         }
         else if (desc.isDrawIndirectArgs) {
@@ -51,10 +54,10 @@ namespace BlackPearl {
         glGenRenderbuffers(1, &rbo);
 
     }
- 
+    //RHICreateUniformBuffer
     Buffer* OpenGLBufferFactory::createUniformBuffer(const BufferDesc& _desc)
     {
-        FRHIUniformBufferLayout* layout = new FRHIUniformBufferLayout();
+        UniformBufferLayout* layout = _desc.uniformBufferLayout;
         return DBG_NEW OpenGLUniformBuffer(layout, _desc);
     }
     Buffer* OpenGLBufferFactory::createIndexBuffer(const BufferDesc& _desc)
@@ -81,16 +84,7 @@ namespace BlackPearl {
 
 
 
-    OpenGLUniformBuffer::OpenGLUniformBuffer(const FRHIUniformBufferLayout* InLayout, const BufferDesc& _desc)
-        :Buffer(_desc)
-    {
-    }
-    void OpenGLUniformBuffer::SetGLUniformBufferParams(GLuint InResource, uint32_t InOffset, uint8_t* InPersistentlyMappedBuffer, uint32_t InAllocatedSize, FOpenGLEUniformBufferData* InEmulatedBuffer, bool bInStreamDraw)
-    {
-    }
-    OpenGLUniformBuffer::~OpenGLUniformBuffer()
-    {
-    }
+    
 
 
 

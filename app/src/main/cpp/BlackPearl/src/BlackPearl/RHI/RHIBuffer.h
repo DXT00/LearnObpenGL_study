@@ -2,6 +2,7 @@
 #include "RHIDefinitions.h"
 #include "RefCountPtr.h"
 #include "RHIResources.h"
+#include "RHIInputLayout.h"
 #include "BlackPearl/Core.h"
 namespace BlackPearl {
     struct BufferDesc
@@ -22,6 +23,7 @@ namespace BlackPearl {
         bool isAccelStructStorage = false;
         bool isShaderBindingTable = false;
 
+		UniformBufferLayout* uniformBufferLayout;
         // A dynamic/upload buffer whose contents only live in the current command list
         bool isVolatile = false;
 
@@ -91,98 +93,6 @@ namespace BlackPearl {
         [[nodiscard]] virtual const BufferDesc& getDesc() const = 0;
     };
 
-	enum class ElementDataType {
-		Char,
-		Char3,
-		Int,
-		Int2,
-		Int3,
-		Int4,
-		Float,
-		Float2,
-		Float3,
-		Float4,
-		Mat3,
-		Mat4,
-		False,
-		True
-	};
-
-
-	static uint32_t GetDataSize(ElementDataType type) {
-
-		switch (type) {
-		case ElementDataType::Char:      return sizeof(char);
-		case ElementDataType::Char3:     return 3 * sizeof(char);
-		case ElementDataType::Int:      return sizeof(int);
-		case ElementDataType::Int2:     return 2 * sizeof(int);
-		case ElementDataType::Int3:     return 3 * sizeof(int);
-		case ElementDataType::Int4:     return 4 * sizeof(int);
-
-		case ElementDataType::Float:    return sizeof(float);
-		case ElementDataType::Float2:   return 2 * sizeof(float);
-		case ElementDataType::Float3:   return 3 * sizeof(float);
-		case ElementDataType::Float4:   return 4 * sizeof(float);
-
-		case ElementDataType::Mat3:		return 3 * 3 * sizeof(float);
-		case ElementDataType::Mat4:		return 4 * 4 * sizeof(float);
-		case ElementDataType::False:	return 1;
-		case ElementDataType::True:		return 1;
-
-
-		}
-		GE_ASSERT(false, "Unknown ElementDataType!")
-			return 0;
-	}
-
-
-	struct BufferElement {
-		ElementDataType Type;
-		std::string Name;
-		bool Normalized;
-		uint32_t Offset;
-		uint32_t ElementSize;
-		uint32_t Location;
-		BufferElement() {
-
-		}
-		BufferElement(ElementDataType type, std::string name, bool normalized, uint32_t location)
-			:Type(type),
-			Name(name),
-			Normalized(normalized),
-			Offset(0),
-			ElementSize(GetDataSize(type)),
-			Location(location) {
-		}
-
-		uint32_t GetElementCount() {
-			switch (Type) {
-			case ElementDataType::Int:      return 1;
-			case ElementDataType::Int2:     return 2;
-			case ElementDataType::Int3:     return 3;
-			case ElementDataType::Int4:     return 4;
-			case ElementDataType::Float:    return 1;
-			case ElementDataType::Float2:   return 2;
-			case ElementDataType::Float3:   return 3;
-			case ElementDataType::Float4:   return 4;
-			case ElementDataType::Mat3:		return 3 * 3;
-			case ElementDataType::Mat4:		return 4 * 4;
-			case ElementDataType::False:	return 1;
-			case ElementDataType::True:		return 1;
-			}
-			GE_ASSERT(false, "Unknown ElementDataType!")
-				return 0;
-		}
-		void operator=(const BufferElement& rhs) {
-			Type = rhs.Type;
-			Name = rhs.Name;
-			Normalized = rhs.Normalized;
-			Offset = rhs.Offset;
-			ElementSize = rhs.ElementSize;
-			Location = rhs.Location;
-			//return *this;
-		}
-	};
 
 	class VertexBufferLayout {
 	public:

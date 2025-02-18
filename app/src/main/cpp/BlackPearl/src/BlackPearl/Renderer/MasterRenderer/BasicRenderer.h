@@ -10,7 +10,6 @@
 #include "BlackPearl/Node/SingleNode.h"
 #include "BlackPearl/Node/Node.h"
 #include "BlackPearl/RHI/RHIDevice.h"
-
 namespace BlackPearl 
 {
 	class BasicRenderer
@@ -29,28 +28,28 @@ namespace BlackPearl
 		//��ͬobjectʹ�ò�ͬshader,ʹ��ǰҪ������shader
 		virtual void DrawObjects(std::vector<Object *>objs, SceneData* scene = Renderer::GetSceneData());
 		//����Objectsʹ��ͬһ��shader
-		virtual void DrawObjects(std::vector<Object *>objs,std::shared_ptr<Shader> shader, SceneData* scene = Renderer::GetSceneData(), unsigned int textureBeginIdx = 2);
+		virtual void DrawObjects(std::vector<Object *>objs, IShader* shader, SceneData* scene = Renderer::GetSceneData(), unsigned int textureBeginIdx = 2);
 		//ʹ��ǰҪ������shader,���Object�Ĳ�ͬMesh�����в�ͬ��shader
 		virtual void DrawObject(Object *obj, SceneData* scene = Renderer::GetSceneData(),unsigned int textureBeginIdx=2);
 		//���Object������Meshʹ��ͬһ��shader
-		virtual void DrawObject(Object *obj, std::shared_ptr<Shader> shader, SceneData* scene = Renderer::GetSceneData(), unsigned int textureBeginIdx = 2);
-		void DrawObjectVertex(Object* obj, std::shared_ptr<Shader> shader, SceneData* scene = Renderer::GetSceneData(), unsigned int textureBeginIdx = 2);
+		virtual void DrawObject(Object *obj, IShader* shader, SceneData* scene = Renderer::GetSceneData(), unsigned int textureBeginIdx = 2);
+		void DrawObjectVertex(Object* obj, IShader* shader, SceneData* scene = Renderer::GetSceneData(), unsigned int textureBeginIdx = 2);
 		void DiscpatchCompute(uint32_t x, uint32_t y, uint32_t z);
 
-		void DrawBatchNode(BatchNode* node, std::shared_ptr<Shader> shader);
-		void DrawInstanceNode(InstanceNode* node, std::shared_ptr<Shader> shader);
-		void DrawSingleNode(SingleNode* node, const std::shared_ptr<Shader>& shader);
-		void DrawMultiIndirect(std::shared_ptr<VertexArray> vertexArray, std::shared_ptr<Shader> shader, uint32_t cmdsCnt);
-		void DrawTerrain(Object* obj, std::shared_ptr<Shader> shader, bool drawPolygon = false);
+		void DrawBatchNode(BatchNode* node, IShader* shader);
+		void DrawInstanceNode(InstanceNode* node, IShader* shader);
+		void DrawSingleNode(SingleNode* node, const IShader*& shader);
+		void DrawMultiIndirect(std::shared_ptr<VertexArray> vertexArray, IShader* shader, uint32_t cmdsCnt);
+		void DrawTerrain(Object* obj, IShader* shader, bool drawPolygon = false);
 
 		void DrawPointLight(Object *obj, SceneData* scene = Renderer::GetSceneData(), unsigned int textureBeginIdx = 2);
 		void DrawLightSources(const LightSources* lightSources, SceneData* scene = Renderer::GetSceneData(), unsigned int textureBeginIdx = 2);
-		void PrepareBasicShaderParameters(std::shared_ptr<Mesh> mesh,std::shared_ptr<Shader> shader, bool isLight = false, unsigned int textureBeginIdx = 2);
+		void PrepareBasicShaderParameters(std::shared_ptr<class Mesh> mesh,IShader* shader, bool isLight = false, unsigned int textureBeginIdx = 2);
 	protected:
 
         void SetupInputBuffers(ICommandList* cmdList, BufferGroup* buffers, Transform* trans, GraphicsState& state);
         bool SetupMaterial(const Material* material, RasterCullMode cullMode, const GraphicsPipelineDesc& pipelineDesc, GraphicsState& state);
-		void RenderPassTemplate(ICommandList* cmdList, IFramebuffer* framebuffer, IView* view, IDrawStrategy* drawStrategy, const ShaderParameters& shaderParms);
+		void RenderPassTemplate(ICommandList* cmdList, IFramebuffer* framebuffer, IView* view, IDrawStrategy* drawStrategy, const ShaderParameters* shaderParms);
 		DeviceHandle m_Device;
 		std::shared_ptr<MaterialBindingCache> m_MaterialBindingsCache;
 
